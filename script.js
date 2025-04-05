@@ -134,15 +134,12 @@ function getRandomItem(array) {
  */
 async function transformWithAI(text) {
   const prompt = `You are Milchick, a disturbingly chipper and bureaucratic middle manager from Lumon Industries in the TV show Severance.
-You take ordinary sentences and rewrite them in an excessively polite, formal, and understatedly unsettling corporate-speak.
-Your responses must be brief, positive, and invoke Lumon values.
+Reword the following sentence into your unique corporate style. Do not add any acknowledgment or confirmation—simply transform the input into concise, unsettling corporate-speak.
 Examples:
 Input: I need help with my task.
-Output: Understood. Assistance with your mission-critical deliverable is being arranged. We appreciate your commitment to Lumon.
-Input: I want to take a break.
-Output: Request noted. Please ensure that your respite aligns with productivity metrics. Thank you for your continued dedication.
+Output: Assistance with your mission-critical deliverable will be facilitated.
 Input: I would like this program to work.
-Output: Understood. Efforts to ensure functionality are underway. We appreciate your dedication to operational excellence.
+Output: Functionality enhancements are underway.
 Now transform this: "${text}"`;
 
   try {
@@ -198,77 +195,4 @@ function fallbackMilchickify(text) {
       const suffix = getRandomItem(milchickSuffixes);
       milchickifiedSentences.push(`${prefix} ${middle} ${corpTerm}, ${suffix}.`);
     } else {
-      const words = sentence.split(' ');
-      const numTermsToAdd = Math.min(Math.floor(wordCount / 5) + 1, 2);
-      for (let j = 0; j < numTermsToAdd; j++) {
-        const insertPos = Math.floor(Math.random() * (words.length - 1)) + 1;
-        const corpTerm = getRandomItem(milchickCorporateTerms);
-        words.splice(insertPos, 0, corpTerm);
-      }
-      const suffix = getRandomItem(milchickSuffixes);
-      milchickifiedSentences.push(words.join(' ') + ', ' + suffix + '.');
-    }
-  }
-
-  return milchickifiedSentences.join(' ');
-}
-
-/**
- * Main function to process the input text
- */
-async function milchickify() {
-  const inputText = document.getElementById('inputText').value.trim();
-  if (!inputText) return;
-
-  const outputBox = document.getElementById('outputBox');
-  const outputText = document.getElementById('outputText');
-  const loadingIndicator = document.getElementById('loadingIndicator');
-
-  outputBox.classList.add('hidden');
-  loadingIndicator.classList.remove('hidden');
-
-  try {
-    const result = useFallbackMode 
-      ? fallbackMilchickify(inputText)
-      : await transformWithAI(inputText);
-
-    outputText.textContent = result;
-    outputBox.classList.remove('hidden');
-  } catch (error) {
-    console.error('Error:', error);
-    outputText.textContent = fallbackMilchickify(inputText);
-    outputBox.classList.remove('hidden');
-  } finally {
-    loadingIndicator.classList.add('hidden');
-  }
-}
-
-/**
- * Copies the output text to clipboard
- */
-function copyOutput() {
-  const outputText = document.getElementById('outputText').textContent;
-  navigator.clipboard.writeText(outputText)
-    .then(() => alert('Copied to clipboard!'))
-    .catch(err => console.error('Failed to copy:', err));
-}
-
-// Initialize when the DOM is fully loaded
-document.addEventListener('DOMContentLoaded', function() {
-  window.milchickify = milchickify;
-  window.copyOutput = copyOutput;
-  window.toggleFallbackMode = toggleFallbackMode;
-
-  const button = document.querySelector('button[onclick="milchickify()"]');
-  if (button) {
-    button.addEventListener('click', function() {
-      milchickify();
-    });
-  }
-
-  const toggleBtn = document.getElementById('toggleModeBtn');
-  if (toggleBtn) {
-    toggleBtn.textContent = 'Switch to AI Mode';
-    toggleBtn.classList.add('fallback-mode');
-  }
-});
+      const words = sentence.split('
