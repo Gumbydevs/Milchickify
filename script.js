@@ -296,33 +296,79 @@ INPUT TEXT: "${text}" ${randomParam}
   }
 }
 
-/**
- * Check for preset responses based on keywords
- */
+
+// Function to check for preset responses based on keywords
 function checkForPresetResponse(text) {
-  const lowerText = text.toLowerCase();
+  // Make it more accurate by checking for more specific matches
+  const lowerText = text.toLowerCase().trim();
   
-  // Check for direct keywords
-  for (const [keyword, response] of Object.entries(presetResponses)) {
-    if (lowerText.includes(keyword)) {
-      return response;
+  // Only match exact phrases or phrases where the keyword is a substantial part
+  const exactMatches = {
+    "break": ["need a break", "can i take a break", "give me a break"],
+    "lunch": ["lunch time", "lunch break", "when is lunch"],
+    "tired": ["i am tired", "i'm tired", "feeling tired"],
+    "vacation": ["vacation time", "need vacation", "want vacation"],
+    "sick": ["i am sick", "i'm sick", "feeling sick"],
+    "quit": ["i quit", "want to quit", "i'm quitting"],
+    "hello": ["hello", "hi there", "greetings"],
+    "meeting": ["schedule meeting", "about the meeting", "in the meeting"],
+    "weekend": ["this weekend", "for the weekend", "on weekend"],
+    "salary": ["about salary", "my salary", "salary increase"]
+  };
+  
+  // Check for exact matches or substantial matches
+  for (const [keyword, phrases] of Object.entries(exactMatches)) {
+    // Check for exact matches to any of the phrases
+    if (phrases.some(phrase => lowerText === phrase || 
+                    lowerText.startsWith(phrase + " ") || 
+                    lowerText.endsWith(" " + phrase) ||
+                    lowerText.includes(" " + phrase + " "))) {
+      return presetResponses[keyword];
     }
   }
   
-  // Check for common phrases
-  if (lowerText.includes("take a break") || lowerText.includes("need a break")) {
-    return presetResponses["break"];
-  }
-  
-  if (lowerText.includes("eat") || lowerText.includes("food")) {
-    return presetResponses["lunch"];
-  }
-  
-  if (lowerText.includes("day off") || lowerText.includes("time off")) {
-    return presetResponses["vacation"];
-  }
-  
+  // If we're here, no strong match was found
   return null;
+}
+
+/**
+ * Transform text using OpenAI
+ */
+async function transformWithOpenAI(text) {
+  try {
+    console.log("Attempting OpenAI API call...");
+    const response = await fetch(OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        messages: [
+          {
+            role: 'system', 
+            content: 'You are Milchick, a disturbingly chipper and bureaucratic middle manager from Lumon Industries in the TV show Severance. Transform input text into your corporate style while preserving the core meaning. Always respond with exactly two sentences. Make it concise, unsettlingly corporate, and use bureaucratic language and Lumon-appropriate terminology. Do not include any explanations, just respond with the converted text.'
+          },
+          {role: 'user', content: text}
+        ],
+        max_tokens: 150,
+        temperature: 0.7
+      })
+    });
+    
+    if (!response.ok) {
+      console.log(`OpenAI API request failed with status ${response.status}`);
+      throw new Error(`OpenAI API request failed with status ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log("OpenAI response received:", data);
+    return data.choices[0].message.content.trim();
+  } catch (error) {
+    console.error("OpenAI API Error:", error);
+    return null;
+  }
 }
 
 /**
@@ -330,11 +376,14 @@ function checkForPresetResponse(text) {
  */
 async function transformWithAI(text) {
   try {
-    // Check for preset responses first
-    const presetResponse = checkForPresetResponse(text);
-    if (presetResponse) {
-      apiProvider = 'preset';
-      return presetResponse;
+    // Only check for preset responses if the text is very short or matches very specific patterns
+    if (text.length < 10) {
+      const presetResponse = checkForPresetResponse(text);
+      if (presetResponse) {
+        console.log("Using preset response for short text");
+        apiProvider = 'preset';
+        return presetResponse;
+      }
     }
     
     // Next try OpenAI
@@ -349,7 +398,7 @@ async function transformWithAI(text) {
       result = await transformWithHuggingFace(text);
     }
     
-    // If both APIs fail, use improved fallback
+    // Only fall back to local processing if both APIs fail
     if (!result) {
       apiProvider = 'local';
       console.log("All APIs failed, using improved fallback...");
