@@ -167,6 +167,14 @@ Now transform this: "${text}" ${randomParam}`;
     }
 
     let generatedText = (await response.json())[0]?.generated_text || fallbackMilchickify(text);
+    // Clean up model output to remove junk
+      generatedText = generatedText
+      .replace(/^(Output:|Transformation:)\s*/i, '')         // Remove starting labels
+      .replace(/<!--[\s\S]*?-->/g, '')                       // Remove HTML comments
+      .replace(/<[^>]+>/g, '')                               // Remove HTML tags
+      .replace(/[^a-zA-Z0-9.,;:\-'"()\s]/g, '')              // Remove weird symbols
+      .trim();
+
     // Remove any leading "Output:" or "Transformation:" from each line
     generatedText = generatedText.split('\n').map(line =>
       line.replace(/^(Output:|Transformation:)\s*/i, '')
