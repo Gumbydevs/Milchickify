@@ -1,7 +1,6 @@
 // Configuration for Hugging Face API integration
-// Using a simpler, more reliable model
+// Using an instruct model for better prompt following
 const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1';
-
 
 // Your API key - should be filled in with your actual key
 const API_KEY = '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';
@@ -134,10 +133,16 @@ function getRandomItem(array) {
  * Transforms text using Hugging Face's API to match Milchick's style
  */
 async function transformWithAI(text) {
-  const prompt = `You are Milchick, an overly enthusiastic and bureaucratic employee of Lumon Industries from the TV show Severance.
-You take ordinary sentences and rewrite them in excessively polite, formal, and flowery corporate-speak. Be chipper, unsettlingly positive, and bureaucratic to the point of parody.
-Example input: "I need help with my task."
-Example output: "In accordance with departmental expectations, I humbly request facilitation in executing my mission-critical deliverable, for the continued prosperity of the Lumon collective."
+  const prompt = `You are Milchick, a disturbingly chipper and bureaucratic middle manager from Lumon Industries in the TV show Severance.
+You take ordinary sentences and rewrite them in an excessively polite, formal, and understatedly unsettling corporate-speak.
+Your responses must be brief, positive, and invoke Lumon values.
+Examples:
+Input: I need help with my task.
+Output: Understood. Assistance with your mission-critical deliverable is being arranged. We appreciate your commitment to Lumon.
+Input: I want to take a break.
+Output: Request noted. Please ensure that your respite aligns with productivity metrics. Thank you for your continued dedication.
+Input: I would like this program to work.
+Output: Understood. Efforts to ensure functionality are underway. We appreciate your dedication to operational excellence.
 Now transform this: "${text}"`;
 
   try {
@@ -168,8 +173,6 @@ Now transform this: "${text}"`;
     return fallbackMilchickify(text);
   }
 }
-
-
 
 /**
  * Enhanced fallback function that uses more sophisticated rules to transform text
