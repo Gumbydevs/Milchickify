@@ -7,7 +7,7 @@ const API_KEY = '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';
 
 // UI state variables
 let isProcessing = false;
-let useFallback = false;
+let useFallback = true; // Default to fallback mode for more reliable experience
 
 // Milchick-style phrases and expressions
 const milchickPrefixes = [
@@ -15,7 +15,11 @@ const milchickPrefixes = [
   "I'm delighted to inform you about",
   "It brings me immense pleasure to acknowledge",
   "I must commend you on",
-  "Allow me to extend my appreciation for"
+  "Allow me to extend my appreciation for",
+  "I feel compelled to recognize",
+  "It is with utmost enthusiasm that I address",
+  "We at Lumon are particularly pleased with",
+  "I'm thrilled to highlight"
 ];
 
 const milchickMiddles = [
@@ -23,7 +27,11 @@ const milchickMiddles = [
   "your exemplary",
   "your truly remarkable",
   "your diligent",
-  "your praiseworthy"
+  "your praiseworthy",
+  "your incredibly valuable",
+  "your most impressive",
+  "your well-aligned",
+  "your harmonious"
 ];
 
 const milchickCorporateTerms = [
@@ -41,7 +49,13 @@ const milchickCorporateTerms = [
   "pivot",
   "robust solution",
   "streamline",
-  "touch base"
+  "touch base",
+  "core competencies",
+  "vertical integration",
+  "ideation",
+  "deliverables",
+  "strategic alignment",
+  "operational excellence"
 ];
 
 const milchickSuffixes = [
@@ -49,7 +63,12 @@ const milchickSuffixes = [
   "that exemplifies the Lumon spirit",
   "that truly embodies what we stand for",
   "that we at Lumon hold in high regard",
-  "that deserves recognition at our next wellness session"
+  "that deserves recognition at our next wellness session",
+  "which reinforces our department's exceptional standards",
+  "that contributes to our harmonious workplace environment",
+  "which showcases the severed floor's commitment to excellence",
+  "that will surely be noted in your quarterly review",
+  "which we consider a testament to the refinement procedure"
 ];
 
 /**
@@ -79,7 +98,9 @@ async function transformWithAI(text) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-    const milchickPrompt = `As Mr.Milchick from Severance, I would say: "${text}" becomes: "`;
+    // Improved prompt for better Milchick-style responses
+    const milchickPrompt = `Rewrite this sentence in an elaborate, polite but condescending, corporate language flourish like the character Mr. Milchick from the show Severance who uses flowery language, excessive corporate jargon, and references to company values while maintaining a subtly threatening tone: "${text}"
+Milchick's response: "`;
     
     const response = await fetch(HUGGINGFACE_API_URL, {
       method: 'POST',
@@ -110,10 +131,33 @@ async function transformWithAI(text) {
     if (Array.isArray(data) && data.length > 0 && data[0].generated_text) {
       let generated = data[0].generated_text.trim();
       
-      // Clean up the generated text by removing any incomplete sentences
-      generated = generated.split('.')[0] + '.';
+      // Look for quoted text and extract it if present
+      const quotedTextMatch = generated.match(/"([^"]+)"/);
+      if (quotedTextMatch && quotedTextMatch[1]) {
+        generated = quotedTextMatch[1];
+      }
       
-      if (!generated.includes('Lumon') && !generated.includes('values')) {
+      // Remove any markdown-like syntax or loading text
+      generated = generated.replace(/\[.*?\]/g, '');
+      generated = generated.replace(/Loading\./g, '');
+      generated = generated.replace(/like this:/i, '');
+      
+      // Clean up the sentence structure
+      let sentences = generated.split('.');
+      if (sentences.length > 0) {
+        // Take only the first complete sentence
+        generated = sentences[0].trim();
+        
+        // Make sure it ends with proper punctuation
+        if (!generated.endsWith('.') && !generated.endsWith('!') && !generated.endsWith('?')) {
+          generated += '.';
+        }
+      }
+      
+      // Add Milchick-style suffix if missing
+      if (!generated.toLowerCase().includes('lumon') && 
+          !generated.toLowerCase().includes('value') && 
+          !generated.toLowerCase().includes('spirit')) {
         const suffix = getRandomItem(milchickSuffixes);
         generated += ` ${suffix}.`;
       }
@@ -129,7 +173,7 @@ async function transformWithAI(text) {
 }
 
 /**
- * Fallback function that uses basic rules to transform text
+ * Enhanced fallback function that uses more sophisticated rules to transform text
  */
 function fallbackMilchickify(text) {
   // Handle empty input
@@ -142,13 +186,16 @@ function fallbackMilchickify(text) {
   const milchickifiedSentences = [];
   
   for (let i = 0; i < sentences.length; i++) {
-    const sentence = sentences[i];
-    if (!sentence.trim()) {
+    const sentence = sentences[i].trim();
+    if (!sentence) {
       continue;
     }
     
-    // Randomly determine if we should completely replace or enhance the sentence
-    if (Math.random() < 0.3) {  // 30% chance to completely replace
+    // Determine approach based on sentence length and structure
+    const wordCount = sentence.split(' ').length;
+    
+    if (wordCount < 4 || Math.random() < 0.3) {
+      // For short sentences or 30% chance: complete replacement
       const prefix = getRandomItem(milchickPrefixes);
       const middle = getRandomItem(milchickMiddles);
       const corpTerm = getRandomItem(milchickCorporateTerms);
@@ -156,12 +203,15 @@ function fallbackMilchickify(text) {
       
       const milchickified = `${prefix} ${middle} ${corpTerm}, ${suffix}.`;
       milchickifiedSentences.push(milchickified);
-    } else {  // 70% chance to enhance the original
-      // Insert corporate-speak terms
+    } else {
+      // For longer sentences: enhance with corporate jargon
       const words = sentence.split(' ');
       
-      // Insert a corporate term
-      if (words.length > 3) {
+      // Add 1-2 corporate terms based on sentence length
+      const numTermsToAdd = Math.min(Math.floor(wordCount / 5) + 1, 2);
+      
+      for (let j = 0; j < numTermsToAdd; j++) {
+        // Insert at different positions for variety
         const insertPos = Math.floor(Math.random() * (words.length - 1)) + 1;
         const corpTerm = getRandomItem(milchickCorporateTerms);
         words.splice(insertPos, 0, corpTerm);
@@ -289,5 +339,12 @@ document.addEventListener('DOMContentLoaded', function() {
     button.addEventListener('click', function() {
       milchickify();
     });
+  }
+  
+  // Update the toggle button to reflect default fallback mode
+  const toggleBtn = document.getElementById('toggleModeBtn');
+  if (toggleBtn) {
+    toggleBtn.textContent = 'Switch to AI Mode';
+    toggleBtn.classList.add('fallback-mode');
   }
 });
