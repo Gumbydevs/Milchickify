@@ -163,8 +163,10 @@ Now transform this: "${text}"`;
       throw new Error(`API request failed with status ${response.status}`);
     }
 
-    const data = await response.json();
-    return data[0]?.generated_text || fallbackMilchickify(text);
+    let generatedText = (await response.json())[0]?.generated_text || fallbackMilchickify(text);
+    // Remove any leading "Output:" if present
+    generatedText = generatedText.replace(/^Output:\s*/i, '');
+    return generatedText.trim();
   } catch (error) {
     console.error("API Error:", error);
     return fallbackMilchickify(text);
