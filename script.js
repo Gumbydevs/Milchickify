@@ -31,13 +31,13 @@ const corporateReplacements = {
 
 function basicMilchickify(text) {
   let result = text.toLowerCase();
-  
+
   // Replace full words only (using word boundaries)
   for (const [key, value] of Object.entries(corporateReplacements)) {
     const regex = new RegExp(`\\b${key}\\b`, 'gi');
     result = result.replace(regex, value);
   }
-  
+
   // Add Lumon-style phrases at the start or end (randomly)
   const lumenPhrases = [
     "In service of workplace harmony, ",
@@ -45,7 +45,7 @@ function basicMilchickify(text) {
     "To maintain departmental cohesion, ",
     "For the greater good of Lumon, "
   ];
-  
+
   const randomPhrase = lumenPhrases[Math.floor(Math.random() * lumenPhrases.length)];
   return randomPhrase + result.charAt(0).toUpperCase() + result.slice(1);
 }
@@ -119,6 +119,7 @@ function toggleFallbackMode() {
   useFallbackMode = !useFallbackMode;
   const toggleBtn = document.getElementById('toggleModeBtn');
   toggleBtn.textContent = useFallbackMode ? 'Switch to AI Mode' : 'Switch to Basic Mode';
+  toggleBtn.classList.toggle('fallback-mode', useFallbackMode);
 }
 
 /**
@@ -132,6 +133,7 @@ function getRandomItem(array) {
  * Transforms text using Hugging Face's API to match Milchick's style
  */
 async function transformWithAI(text) {
+  const prompt = `You are Milchick from the TV show Severance. Rephrase the following sentence using Lumon-style corporate speak. Be condescending but extremely polite, verbose, overly enthusiastic, and opaque. Retain the original message’s intent.\n\nOriginal: \"${text}\"\nMilchickified:`;
   try {
     const response = await fetch(HUGGINGFACE_API_URL, {
       method: 'POST',
@@ -140,7 +142,7 @@ async function transformWithAI(text) {
         'Authorization': `Bearer ${API_KEY}`
       },
       body: JSON.stringify({
-        inputs: text,
+        inputs: prompt,
         parameters: {
           max_new_tokens: 100,
           temperature: 0.7,
@@ -154,7 +156,8 @@ async function transformWithAI(text) {
     }
 
     const data = await response.json();
-    return data[0]?.generated_text || fallbackMilchickify(text);
+    const raw = data[0]?.generated_text || '';
+    return raw.split('Milchickified:')[1]?.trim() || raw.trim();
   } catch (error) {
     console.error("API Error:", error);
     return fallbackMilchickify(text);
@@ -165,55 +168,38 @@ async function transformWithAI(text) {
  * Enhanced fallback function that uses more sophisticated rules to transform text
  */
 function fallbackMilchickify(text) {
-  // Handle empty input
   if (!text || typeof text !== 'string') {
     return '';
   }
 
-  // Split the input into sentences
   const sentences = text.split('. ');
   const milchickifiedSentences = [];
-  
+
   for (let i = 0; i < sentences.length; i++) {
     const sentence = sentences[i].trim();
-    if (!sentence) {
-      continue;
-    }
-    
-    // Determine approach based on sentence length and structure
+    if (!sentence) continue;
+
     const wordCount = sentence.split(' ').length;
-    
+
     if (wordCount < 4 || Math.random() < 0.3) {
-      // For short sentences or 30% chance: complete replacement
       const prefix = getRandomItem(milchickPrefixes);
       const middle = getRandomItem(milchickMiddles);
       const corpTerm = getRandomItem(milchickCorporateTerms);
       const suffix = getRandomItem(milchickSuffixes);
-      
-      const milchickified = `${prefix} ${middle} ${corpTerm}, ${suffix}.`;
-      milchickifiedSentences.push(milchickified);
+      milchickifiedSentences.push(`${prefix} ${middle} ${corpTerm}, ${suffix}.`);
     } else {
-      // For longer sentences: enhance with corporate jargon
       const words = sentence.split(' ');
-      
-      // Add 1-2 corporate terms based on sentence length
       const numTermsToAdd = Math.min(Math.floor(wordCount / 5) + 1, 2);
-      
       for (let j = 0; j < numTermsToAdd; j++) {
-        // Insert at different positions for variety
         const insertPos = Math.floor(Math.random() * (words.length - 1)) + 1;
         const corpTerm = getRandomItem(milchickCorporateTerms);
         words.splice(insertPos, 0, corpTerm);
       }
-      
-      // Add a Milchick-style suffix
       const suffix = getRandomItem(milchickSuffixes);
-      const milchickified = words.join(' ') + ', ' + suffix + '.';
-      
-      milchickifiedSentences.push(milchickified);
+      milchickifiedSentences.push(words.join(' ') + ', ' + suffix + '.');
     }
   }
-  
+
   return milchickifiedSentences.join(' ');
 }
 
@@ -235,7 +221,7 @@ async function milchickify() {
     const result = useFallbackMode 
       ? fallbackMilchickify(inputText)
       : await transformWithAI(inputText);
-    
+
     outputText.textContent = result;
     outputBox.classList.remove('hidden');
   } catch (error) {
@@ -259,20 +245,17 @@ function copyOutput() {
 
 // Initialize when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', function() {
-  // Make functions available globally
   window.milchickify = milchickify;
   window.copyOutput = copyOutput;
   window.toggleFallbackMode = toggleFallbackMode;
-  
-  // Add an extra event listener to the button just in case
+
   const button = document.querySelector('button[onclick="milchickify()"]');
   if (button) {
     button.addEventListener('click', function() {
       milchickify();
     });
   }
-  
-  // Update the toggle button to reflect default fallback mode
+
   const toggleBtn = document.getElementById('toggleModeBtn');
   if (toggleBtn) {
     toggleBtn.textContent = 'Switch to AI Mode';
