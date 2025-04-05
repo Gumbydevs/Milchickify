@@ -1,8 +1,9 @@
 // Configuration for Hugging Face API integration
-const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/facebook/bart-large-cnn';
+// Using a simpler, more reliable model
+const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/gpt2';
 
-// Your API key
-const API_KEY = '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'; 
+// Your API key - should be filled in with your actual key
+const API_KEY = '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';
 
 // UI state variables
 let isProcessing = false;
@@ -74,14 +75,11 @@ function getRandomItem(array) {
  * Transforms text using Hugging Face's API to match Milchick's style
  */
 async function transformWithAI(text) {
-  console.log("Attempting API call with text:", text);
-  
   try {
-    // Create a prompt that describes what we want
-    const prompt = `Transform this text into Irving Milchick style corporate speak from Severance TV show, with flowery language, corporate jargon, and references to Lumon values: "${text}"`;
-    
-    console.log("Using API URL:", HUGGINGFACE_API_URL);
-    console.log("API Key length:", API_KEY.length);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const milchickPrompt = `As Mr.Milchick from Severance, I would say: "${text}" becomes: "`;
     
     const response = await fetch(HUGGINGFACE_API_URL, {
       method: 'POST',
@@ -90,43 +88,43 @@ async function transformWithAI(text) {
         'Authorization': `Bearer ${API_KEY}`
       },
       body: JSON.stringify({
-        inputs: prompt,
+        inputs: milchickPrompt,
         parameters: {
-          max_length: 250,
-          temperature: 0.7,
-          top_p: 0.9,
-          do_sample: true
+          max_length: 150,
+          temperature: 0.8,
+          return_full_text: false
         }
-      })
+      }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
     
-    console.log("API Response status:", response.status);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || `API request failed with status ${response.status}`);
+    }
     
     const data = await response.json();
-    console.log("API Response data:", data);
     
-    if (data.error) {
-      console.error("API Error:", data.error);
-      return null; // Will trigger fallback
-    }
-    
-    // Different models return results in different formats
     if (Array.isArray(data) && data.length > 0 && data[0].generated_text) {
-      return data[0].generated_text;
+      let generated = data[0].generated_text.trim();
+      
+      // Clean up the generated text by removing any incomplete sentences
+      generated = generated.split('.')[0] + '.';
+      
+      if (!generated.includes('Lumon') && !generated.includes('values')) {
+        const suffix = getRandomItem(milchickSuffixes);
+        generated += ` ${suffix}.`;
+      }
+      
+      return generated;
     }
-    else if (data.generated_text) {
-      return data.generated_text;
-    }
-    else if (typeof data === 'string') {
-      return data;
-    }
-    else {
-      console.error("Unexpected API response format:", data);
-      return null; // Will trigger fallback
-    }
+    
+    throw new Error('Invalid API response format');
   } catch (error) {
-    console.error("Error calling Hugging Face API:", error);
-    return null; // Will trigger fallback
+    console.error("Error calling Hugging Face API:", error.message);
+    return null;
   }
 }
 
@@ -134,8 +132,6 @@ async function transformWithAI(text) {
  * Fallback function that uses basic rules to transform text
  */
 function fallbackMilchickify(text) {
-  console.log("Using fallback mode with text:", text);
-  
   // Handle empty input
   if (!text || typeof text !== 'string') {
     return '';
@@ -179,83 +175,58 @@ function fallbackMilchickify(text) {
     }
   }
   
-  const result = milchickifiedSentences.join(' ');
-  console.log("Fallback generated:", result);
-  return result;
+  return milchickifiedSentences.join(' ');
 }
 
 /**
  * Main function to process the input text
  */
 async function milchickify() {
-  console.log("milchickify function called");
+  const inputElement = document.getElementById('inputText');
+  const outputElement = document.getElementById('outputText');
+  const outputBox = document.getElementById('outputBox');
+  const loadingIndicator = document.getElementById('loadingIndicator');
   
   try {
-    const inputElement = document.getElementById('inputText');
-    const outputElement = document.getElementById('outputText');
-    const outputBox = document.getElementById('outputBox');
-    const loadingIndicator = document.getElementById('loadingIndicator');
-    
-    console.log("Input element exists:", !!inputElement);
-    console.log("Output element exists:", !!outputElement);
-    console.log("Output box exists:", !!outputBox);
-    console.log("Loading indicator exists:", !!loadingIndicator);
-    
     if (!inputElement || !outputElement || !outputBox) {
-      console.error('Required DOM elements not found');
-      return;
+      throw new Error('Required DOM elements not found');
     }
     
     const input = inputElement.value.trim();
-    console.log("Input text:", input);
-    
     if (!input) {
-      console.log("Empty input, returning");
       return;
     }
 
-    // Show loading indicator
+    if (isProcessing) {
+      return; // Prevent multiple simultaneous submissions
+    }
+
+    isProcessing = true;
     if (loadingIndicator) {
       loadingIndicator.style.display = 'block';
-      console.log("Loading indicator displayed");
     }
     
-    isProcessing = true;
     let milchickifiedText;
     
-    console.log("Using fallback mode:", useFallback);
-    
     if (useFallback) {
-      // Use the basic algorithm if in fallback mode
       milchickifiedText = fallbackMilchickify(input);
     } else {
-      // Try to use the AI API
-      console.log("Attempting AI transformation");
       milchickifiedText = await transformWithAI(input);
-      
-      // If AI failed, use fallback
       if (!milchickifiedText) {
-        console.log("AI transformation failed, falling back to basic mode");
         milchickifiedText = fallbackMilchickify(input);
       }
     }
     
-    console.log("Final text:", milchickifiedText);
-    
-    // Hide loading indicator
-    if (loadingIndicator) {
-      loadingIndicator.style.display = 'none';
-      console.log("Loading indicator hidden");
-    }
-    
     outputElement.innerText = milchickifiedText;
     outputBox.classList.remove('hidden');
-    console.log("Output displayed");
-    
-    isProcessing = false;
   } catch (error) {
-    console.error("Error in milchickify function:", error);
-    alert("An error occurred. Check the console for details.");
+    console.error('Error in milchickify:', error);
+    outputElement.innerText = 'An error occurred. Please try again.';
+  } finally {
+    if (loadingIndicator) {
+      loadingIndicator.style.display = 'none';
+    }
+    isProcessing = false;
   }
 }
 
@@ -263,8 +234,6 @@ async function milchickify() {
  * Copies the output text to clipboard
  */
 function copyOutput() {
-  console.log("copyOutput function called");
-  
   const outputElement = document.getElementById('outputText');
   
   if (!outputElement) {
@@ -273,14 +242,12 @@ function copyOutput() {
   }
   
   const text = outputElement.innerText;
-  console.log("Copying text:", text);
   
   // Use a more modern approach to clipboard API with fallback
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text)
       .then(() => {
         alert("Copied!");
-        console.log("Text copied successfully");
       })
       .catch(err => {
         console.error('Failed to copy text: ', err);
@@ -300,7 +267,6 @@ function copyOutput() {
       const successful = document.execCommand('copy');
       const msg = successful ? 'Copied!' : 'Failed to copy. Please try again.';
       alert(msg);
-      console.log("Text copy result:", successful);
     } catch (err) {
       console.error('Failed to copy text: ', err);
       alert("Failed to copy. Please try again.");
@@ -310,35 +276,18 @@ function copyOutput() {
   }
 }
 
-// Make sure the milchickify function is available globally
-window.milchickify = milchickify;
-window.copyOutput = copyOutput;
-window.toggleFallbackMode = toggleFallbackMode;
-
-// Log when the script loads
-console.log("Script loaded successfully");
-
-// Add a simple check in case the button is not properly hooked up
+// Initialize when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', function() {
-  console.log("DOM loaded");
+  // Make functions available globally
+  window.milchickify = milchickify;
+  window.copyOutput = copyOutput;
+  window.toggleFallbackMode = toggleFallbackMode;
   
-  // Check if the button has a click handler
+  // Add an extra event listener to the button just in case
   const button = document.querySelector('button[onclick="milchickify()"]');
-  console.log("Main button exists:", !!button);
-  
   if (button) {
-    // Add an extra event listener just in case
     button.addEventListener('click', function() {
-      console.log("Button clicked via event listener");
       milchickify();
     });
-  }
-  
-  // Force default to fallback mode since we're having API issues
-  useFallback = true;
-  const toggleBtn = document.getElementById('toggleModeBtn');
-  if (toggleBtn) {
-    toggleBtn.textContent = 'Switch to AI Mode';
-    toggleBtn.classList.add('fallback-mode');
   }
 });
