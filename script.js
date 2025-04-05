@@ -1,6 +1,8 @@
 // Configuration for Hugging Face API integration
-// Using an instruct model for better prompt following
-const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1';
+// Primary model - Mixtral (might hit rate limits)
+const PRIMARY_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1';
+// Backup model - GPT2 (more likely to work with free tier)
+const BACKUP_API_URL = 'https://api-inference.huggingface.co/models/gpt2';
 
 // Your API key - should be filled in with your actual key
 const API_KEY = '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';
@@ -132,9 +134,6 @@ function getRandomItem(array) {
 /**
  * Transforms text using Hugging Face's API to match Milchick's style
  */
-/**
- * Transforms text using Hugging Face's API to match Milchick's style
- */
 async function transformWithAI(text) {
   const randomParam = Math.random().toString(36).substring(7);
   const prompt = `You are Milchick, a disturbingly chipper and bureaucratic middle manager from Lumon Industries in the TV show Severance.
@@ -163,7 +162,8 @@ INPUT TEXT: "${text}" ${randomParam}
 ###`;
 
   try {
-    const response = await fetch(HUGGINGFACE_API_URL, {
+    // Try primary model first
+    let response = await fetch(PRIMARY_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -180,11 +180,38 @@ INPUT TEXT: "${text}" ${randomParam}
       })
     });
 
+    // If primary fails, try backup model with simplified prompt
     if (!response.ok) {
-      throw new Error(`API request failed with status ${response.status}`);
+      console.log("Primary model failed, trying backup model...");
+      
+      // Simplified prompt for smaller model
+      const backupPrompt = `Convert this text to corporate speak: "${text}"`;
+      
+      response = await fetch(BACKUP_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_KEY}`,
+          'Cache-Control': 'no-cache'
+        },
+        body: JSON.stringify({
+          inputs: backupPrompt,
+          parameters: {
+            max_new_tokens: 100,
+            temperature: 0.8,
+            return_full_text: false
+          }
+        })
+      });
+      
+      // If backup also fails, use improved fallback
+      if (!response.ok) {
+        console.log("Backup model also failed, using improved fallback...");
+        return improvedFallbackMilchickify(text);
+      }
     }
 
-    let generatedText = (await response.json())[0]?.generated_text || fallbackMilchickify(text);
+    let generatedText = (await response.json())[0]?.generated_text || improvedFallbackMilchickify(text);
     
     // Clean up model output to remove junk
     generatedText = generatedText
@@ -199,50 +226,195 @@ INPUT TEXT: "${text}" ${randomParam}
       line.replace(/^(Output:|Transformation:)\s*/i, '')
     ).join(' ').trim();
     
+    // If we got a very short or empty response, use the improved fallback
+    if (generatedText.length < 20) {
+      return improvedFallbackMilchickify(text);
+    }
+    
     return generatedText;
   } catch (error) {
     console.error("API Error:", error);
-    return fallbackMilchickify(text);
+    return improvedFallbackMilchickify(text);
   }
 }
 
 /**
- * Enhanced fallback function that uses more sophisticated rules to transform text
+ * Enhanced fallback function that preserves meaning while adding Milchick style
  */
-function fallbackMilchickify(text) {
+function improvedFallbackMilchickify(text) {
   if (!text || typeof text !== 'string') {
     return '';
   }
 
-  const sentences = text.split('. ');
-  const milchickifiedSentences = [];
-
-  for (let i = 0; i < sentences.length; i++) {
-    const sentence = sentences[i].trim();
-    if (!sentence) continue;
-
-    const wordCount = sentence.split(' ').length;
-
-    if (wordCount < 4 || Math.random() < 0.3) {
-      const prefix = getRandomItem(milchickPrefixes);
-      const middle = getRandomItem(milchickMiddles);
-      const corpTerm = getRandomItem(milchickCorporateTerms);
-      const suffix = getRandomItem(milchickSuffixes);
-      milchickifiedSentences.push(`${prefix} ${middle} ${corpTerm}, ${suffix}.`);
-    } else {
-      const words = sentence.split(' ');
-      const numTermsToAdd = Math.min(Math.floor(wordCount / 5) + 1, 2);
-      for (let j = 0; j < numTermsToAdd; j++) {
-        const insertPos = Math.floor(Math.random() * (words.length - 1)) + 1;
-        const corpTerm = getRandomItem(milchickCorporateTerms);
-        words.splice(insertPos, 0, corpTerm);
-      }
-      const suffix = getRandomItem(milchickSuffixes);
-      milchickifiedSentences.push(words.join(' ') + ', ' + suffix + '.');
-    }
+  // Clean and normalize the input
+  let cleanText = text.trim();
+  if (!cleanText.endsWith('.')) {
+    cleanText += '.';
   }
 
-  return milchickifiedSentences.join(' ');
+  // Break into sentences
+  const sentences = cleanText.split(/(?<=\.)\s+/);
+  const result = [];
+  
+  // Process each sentence to preserve core meaning
+  for (let i = 0; i < Math.min(sentences.length, 2); i++) {
+    const sentence = sentences[i].trim();
+    if (!sentence) continue;
+    
+    // Extract key words (nouns, verbs) - simple approach
+    const words = sentence.split(' ');
+    const keyWords = words.filter(word => 
+      word.length > 3 && 
+      !['this', 'that', 'with', 'from', 'about', 'would', 'could'].includes(word.toLowerCase())
+    );
+    
+    // Get 1-2 key words to preserve
+    const keyTerms = keyWords.length > 0 
+      ? keyWords.slice(0, Math.min(2, keyWords.length))
+      : [words[Math.floor(words.length / 2)]]; // Fallback to middle word
+    
+    // Categorize input intent - very basic detection
+    let intentType = 'statement';
+    if (sentence.includes('?')) intentType = 'question';
+    else if (sentence.toLowerCase().startsWith('i want') || 
+             sentence.toLowerCase().startsWith('i would like') ||
+             sentence.toLowerCase().startsWith('please') ||
+             sentence.toLowerCase().includes('need')) {
+      intentType = 'request';
+    }
+    
+    // Generate appropriate corporate speak based on intent while preserving key terms
+    switch(intentType) {
+      case 'request':
+        result.push(generateRequestResponse(keyTerms));
+        break;
+      case 'question':
+        result.push(generateQuestionResponse(keyTerms));
+        break;
+      default:
+        result.push(generateStatementResponse(keyTerms));
+    }
+  }
+  
+  // If we have less than 2 sentences, add a generic corporate follow-up
+  while (result.length < 2) {
+    result.push(getRandomItem([
+      "This aligns perfectly with our departmental objectives.",
+      "Your compliance with procedure is appreciated.",
+      "Lumon values your continued engagement with the workflow.",
+      "This has been noted in your quarterly evaluation metrics.",
+      "The data refinement process benefits from your participation."
+    ]));
+  }
+  
+  return result.join(' ').trim();
+}
+
+/**
+ * Generates a corporate response to a request while preserving key terms
+ */
+function generateRequestResponse(keyTerms) {
+  const templates = [
+    "Your request regarding KEY_TERMS has been acknowledged and will be processed according to protocol.",
+    "I'm pleased to inform you that your KEY_TERMS inquiry has been escalated to the appropriate department for immediate action.",
+    "The KEY_TERMS matter you've raised has been designated as an actionable item in our workflow queue.",
+    "We at Lumon recognize the importance of your KEY_TERMS needs and will allocate resources accordingly.",
+    "Your KEY_TERMS requirement has been logged in the system with optimal priority designation."
+  ];
+  
+  return applyTemplate(templates, keyTerms);
+}
+
+/**
+ * Generates a corporate response to a question while preserving key terms
+ */
+function generateQuestionResponse(keyTerms) {
+  const templates = [
+    "Regarding your inquiry about KEY_TERMS, I'm authorized to provide a clarification that aligns with company policy.",
+    "The information you seek concerning KEY_TERMS is available within parameters established by the handbook.",
+    "Your KEY_TERMS question has been processed, and I'm pleased to facilitate the appropriate knowledge transfer.",
+    "Our department maintains comprehensive protocols around KEY_TERMS that I'm delighted to share with you.",
+    "I can confirm that KEY_TERMS fall within the scope of our operational guidelines as established by the board."
+  ];
+  
+  return applyTemplate(templates, keyTerms);
+}
+
+/**
+ * Generates a corporate response to a statement while preserving key terms
+ */
+function generateStatementResponse(keyTerms) {
+  const templates = [
+    "I appreciate your perspective on KEY_TERMS, which contributes to our collective workplace harmony.",
+    "Your observation regarding KEY_TERMS has been noted and will inform our procedural optimization.",
+    "The KEY_TERMS information you've shared aligns with our department's ongoing strategic initiatives.",
+    "We value your engagement with KEY_TERMS as it exemplifies the Lumon standard of excellence.",
+    "Your statement about KEY_TERMS demonstrates the kind of workplace awareness we encourage."
+  ];
+  
+  return applyTemplate(templates, keyTerms);
+}
+
+/**
+ * Applies key terms to a template
+ */
+function applyTemplate(templates, keyTerms) {
+  const template = getRandomItem(templates);
+  const corporateKeyTerms = keyTerms.map(term => corporatize(term)).join(' and ');
+  return template.replace('KEY_TERMS', corporateKeyTerms);
+}
+
+/**
+ * Makes a term sound more corporate
+ */
+function corporatize(term) {
+  // Clean the term
+  term = term.toLowerCase().replace(/[^a-z0-9]/g, '');
+  
+  // Common corporate replacements
+  const corporateDict = {
+    "eat": "nutritional intake",
+    "food": "sustenance resources",
+    "lunch": "midday nourishment period",
+    "dinner": "evening sustenance allocation",
+    "breakfast": "morning productivity fuel",
+    "meeting": "collaborative synergy session",
+    "talk": "verbal information exchange",
+    "help": "procedural assistance",
+    "want": "express preference for",
+    "like": "indicate positive alignment with",
+    "need": "require",
+    "work": "productivity output",
+    "problem": "operational challenge",
+    "fix": "implement corrective measures for",
+    "break": "temporary cessation of function",
+    "change": "strategic modification",
+    "update": "version enhancement",
+    "new": "newly implemented",
+    "old": "legacy",
+    "big": "substantial",
+    "small": "minimal footprint",
+    "fast": "high-efficiency",
+    "slow": "deliberate-paced",
+    "good": "optimal",
+    "bad": "sub-optimal",
+    "money": "financial resources",
+    "pay": "monetary compensation"
+  };
+  
+  // If we have a direct replacement, use it
+  if (corporateDict[term]) {
+    return corporateDict[term];
+  }
+  
+  // Otherwise, add a corporate adjective
+  const corporateAdjectives = [
+    "optimized", "strategic", "aligned", "productivity-focused",
+    "sanctioned", "approved", "procedural", "workflow-oriented",
+    "metric-driven", "harmonious", "refined", "standardized"
+  ];
+  
+  return `${getRandomItem(corporateAdjectives)} ${term}`;
 }
 
 /**
@@ -261,14 +433,14 @@ async function milchickify() {
 
   try {
     const result = useFallbackMode 
-      ? fallbackMilchickify(inputText)
+      ? improvedFallbackMilchickify(inputText)
       : await transformWithAI(inputText);
 
     outputText.textContent = result;
     outputBox.classList.remove('hidden');
   } catch (error) {
     console.error('Error:', error);
-    outputText.textContent = fallbackMilchickify(inputText);
+    outputText.textContent = improvedFallbackMilchickify(inputText);
     outputBox.classList.remove('hidden');
   } finally {
     loadingIndicator.classList.add('hidden');
