@@ -2,17 +2,17 @@
 // OpenAI (Primary)
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 // Format is important - remove any "sk-proj-" prefix if the key starts with it
-const OPENAI_API_KEY = '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'.replace('sk-proj-', 'sk-');
+const OPENAI_API_KEY = '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'.replace('sk-proj-', 'sk-');
 const OPENAI_MODEL = 'gpt-3.5-turbo'; // Most cost-effective option
 
-// Hugging Face (Backup)
-const PRIMARY_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1';
-const BACKUP_API_URL = 'https://api-inference.huggingface.co/models/gpt2';
+// Hugging Face (Backup) - Using free models that don't require paid access
+const PRIMARY_API_URL = 'https://api-inference.huggingface.co/models/gpt2';
+const BACKUP_API_URL = 'https://api-inference.huggingface.co/models/distilgpt2';
 const HF_API_KEY = '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';
 
 // UI state variables
 let isProcessing = false;
-let useFallbackMode = false;
+let useFallbackMode = false; // Start with AI mode enabled
 let apiProvider = 'local'; // 'openai', 'huggingface', or 'local'
 
 // Basic mode transformations
@@ -152,152 +152,9 @@ const presetResponses = {
 };
 
 /**
- * Transform text using OpenAI
+ * Function to check for preset responses based on keywords
+ * More specific matching to avoid over-triggering on common words
  */
-async function transformWithOpenAI(text) {
-  try {
-    const response = await fetch(OPENAI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        messages: [
-          {
-            role: 'system', 
-            content: 'You are Milchick, a disturbingly chipper and bureaucratic middle manager from Lumon Industries in the TV show Severance. Transform input text into your corporate style while preserving the core meaning. Always respond with exactly two sentences. Make it concise, unsettlingly corporate, and use bureaucratic language and Lumon-appropriate terminology. Do not include any explanations, just respond with the converted text.'
-          },
-          {role: 'user', content: text}
-        ],
-        max_tokens: 150,
-        temperature: 0.7
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`OpenAI API request failed with status ${response.status}`);
-    }
-    
-    const data = await response.json();
-    return data.choices[0].message.content.trim();
-  } catch (error) {
-    console.error("OpenAI API Error:", error);
-    return null;
-  }
-}
-
-/**
- * Transforms text using Hugging Face's API to match Milchick's style
- */
-async function transformWithHuggingFace(text) {
-  const randomParam = Math.random().toString(36).substring(7);
-  const prompt = `You are Milchick, a disturbingly chipper and bureaucratic middle manager from Lumon Industries in the TV show Severance.
-
-SYSTEM: Respond ONLY with the transformed text. Do not include any acknowledgments, labels, or metadata.
-
-STYLE GUIDE:
-- Transform the input into your unique corporate style while PRESERVING THE CORE MEANING
-- Output must be exactly two sentences
-- Make it concise and unsettlingly corporate
-- Use bureaucratic language and Lumon-appropriate terminology
-- IMPORTANT: Maintain the original intent and key information from the input
-
-EXAMPLES:
-Input: I need help with my task.
-Output: Your mission-critical deliverable will receive immediate facilitation support. Rest assured that all necessary resources will be allocated to optimize your performance metrics.
-
-Input: I would like this program to work.
-Output: Functionality optimization of the designated software solution has been prioritized for your benefit. Our technical refinement process will ensure operational excellence in alignment with department standards.
-
-Input: The coffee machine is broken again.
-Output: The beverage dispensation unit is experiencing a temporary operational disruption that requires immediate maintenance intervention. A service request has been expedited to restore workplace refreshment harmony.
-
-###
-INPUT TEXT: "${text}" ${randomParam}
-###`;
-
-  try {
-    // Try primary model first
-    let response = await fetch(PRIMARY_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${HF_API_KEY}`,
-        'Cache-Control': 'no-cache'
-      },
-      body: JSON.stringify({
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 150,
-          temperature: 0.7,
-          return_full_text: false
-        }
-      })
-    });
-
-    // If primary fails, try backup model with simplified prompt
-    if (!response.ok) {
-      console.log("Primary HF model failed, trying backup model...");
-      
-      // Simplified prompt for smaller model
-      const backupPrompt = `Convert this text to corporate speak: "${text}"`;
-      
-      response = await fetch(BACKUP_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${HF_API_KEY}`,
-          'Cache-Control': 'no-cache'
-        },
-        body: JSON.stringify({
-          inputs: backupPrompt,
-          parameters: {
-            max_new_tokens: 100,
-            temperature: 0.8,
-            return_full_text: false
-          }
-        })
-      });
-      
-      // If backup also fails, return null
-      if (!response.ok) {
-        console.log("Backup HF model also failed");
-        return null;
-      }
-    }
-
-    let generatedText = (await response.json())[0]?.generated_text;
-    if (!generatedText) return null;
-    
-    // Clean up model output to remove junk
-    generatedText = generatedText
-      .replace(/^(Output:|Transformation:)\s*/i, '')         // Remove starting labels
-      .replace(/<!--[\s\S]*?-->/g, '')                       // Remove HTML comments
-      .replace(/<[^>]+>/g, '')                               // Remove HTML tags
-      .replace(/[^a-zA-Z0-9.,;:\-'"()\s]/g, '')             // Remove weird symbols
-      .trim();
-
-    // Remove any leading "Output:" or "Transformation:" from each line
-    generatedText = generatedText.split('\n').map(line =>
-      line.replace(/^(Output:|Transformation:)\s*/i, '')
-    ).join(' ').trim();
-    
-    // If we got a very short response, return null
-    if (generatedText.length < 20) {
-      return null;
-    }
-    
-    return generatedText;
-  } catch (error) {
-    console.error("Hugging Face API Error:", error);
-    return null;
-  }
-}
-
-
-// Function to check for preset responses based on keywords
 function checkForPresetResponse(text) {
   // Make it more accurate by checking for more specific matches
   const lowerText = text.toLowerCase().trim();
@@ -363,7 +220,7 @@ async function transformWithOpenAI(text) {
     }
     
     const data = await response.json();
-    console.log("OpenAI response received:", data);
+    console.log("OpenAI response received successfully");
     return data.choices[0].message.content.trim();
   } catch (error) {
     console.error("OpenAI API Error:", error);
@@ -372,21 +229,113 @@ async function transformWithOpenAI(text) {
 }
 
 /**
+ * Transforms text using Hugging Face's API to match Milchick's style
+ */
+async function transformWithHuggingFace(text) {
+  const randomParam = Math.random().toString(36).substring(7);
+  const prompt = `Transform this text into corporate bureaucratic language like Milchick from Severance: "${text}" ${randomParam}`;
+
+  try {
+    console.log("Attempting Hugging Face API call...");
+    // Try primary model (gpt2)
+    let response = await fetch(PRIMARY_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${HF_API_KEY}`,
+        'Cache-Control': 'no-cache'
+      },
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: {
+          max_new_tokens: 100,
+          temperature: 0.8,
+          return_full_text: false
+        }
+      })
+    });
+
+    // If primary fails, try backup model (distilgpt2)
+    if (!response.ok) {
+      console.log("Primary HF model failed, trying backup model...");
+      
+      response = await fetch(BACKUP_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${HF_API_KEY}`,
+          'Cache-Control': 'no-cache'
+        },
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            max_new_tokens: 100,
+            temperature: 0.8,
+            return_full_text: false
+          }
+        })
+      });
+      
+      // If backup also fails, return null
+      if (!response.ok) {
+        console.log("Backup HF model also failed");
+        return null;
+      }
+    }
+
+    let generatedText = (await response.json())[0]?.generated_text;
+    if (!generatedText) return null;
+    
+    // Clean up model output to remove junk
+    generatedText = generatedText
+      .replace(/^(Output:|Transformation:)\s*/i, '')         // Remove starting labels
+      .replace(/<!--[\s\S]*?-->/g, '')                       // Remove HTML comments
+      .replace(/<[^>]+>/g, '')                               // Remove HTML tags
+      .replace(/[^a-zA-Z0-9.,;:\-'"()\s]/g, '')             // Remove weird symbols
+      .trim();
+
+    // Process into proper Milchick format
+    // This extra step is needed because gpt2/distilgpt2 don't follow instructions as well
+    const processedText = enhanceFallbackOutput(generatedText, text);
+    return processedText;
+  } catch (error) {
+    console.error("Hugging Face API Error:", error);
+    return null;
+  }
+}
+
+/**
+ * Takes raw HuggingFace output and enhances it to follow Milchick format better
+ */
+function enhanceFallbackOutput(rawOutput, originalText) {
+  // Extract any useful corporate phrases from the raw output
+  const sentences = rawOutput.split(/[.!?]+/).filter(s => s.trim().length > 0);
+  
+  if (sentences.length >= 2) {
+    // If we got at least 2 sentences, use them but ensure proper format
+    let result = sentences.slice(0, 2).map(s => s.trim()).join('. ');
+    if (!result.endsWith('.')) result += '.';
+    return result;
+  } else {
+    // If we didn't get good sentences, use enhanced fallback
+    return enhancedFallbackMilchickify(originalText);
+  }
+}
+
+/**
  * Transforms text using available APIs or falls back to local implementation
  */
 async function transformWithAI(text) {
   try {
-    // Only check for preset responses if the text is very short or matches very specific patterns
-    if (text.length < 10) {
-      const presetResponse = checkForPresetResponse(text);
-      if (presetResponse) {
-        console.log("Using preset response for short text");
-        apiProvider = 'preset';
-        return presetResponse;
-      }
+    // Only check for preset responses if there's a very specific match
+    const presetResponse = checkForPresetResponse(text);
+    if (presetResponse) {
+      console.log("Using preset response for exact match");
+      apiProvider = 'preset';
+      return presetResponse;
     }
     
-    // Next try OpenAI
+    // Try OpenAI
     apiProvider = 'openai';
     console.log("Trying OpenAI...");
     let result = await transformWithOpenAI(text);
@@ -401,101 +350,279 @@ async function transformWithAI(text) {
     // Only fall back to local processing if both APIs fail
     if (!result) {
       apiProvider = 'local';
-      console.log("All APIs failed, using improved fallback...");
-      result = improvedFallbackMilchickify(text);
+      console.log("All APIs failed, using enhanced fallback...");
+      result = enhancedFallbackMilchickify(text);
     }
     
     return result;
   } catch (error) {
     console.error("API Error:", error);
     apiProvider = 'local';
-    return improvedFallbackMilchickify(text);
+    return enhancedFallbackMilchickify(text);
   }
 }
 
 /**
- * Enhanced fallback function that preserves meaning while adding Milchick style
+ * Enhanced fallback function that gives AI-like results without API calls
  */
-function improvedFallbackMilchickify(text) {
+function enhancedFallbackMilchickify(text) {
   if (!text || typeof text !== 'string') {
     return '';
   }
 
-  // Check for preset responses first (again, as a safety)
-  const presetResponse = checkForPresetResponse(text);
+  // Clean and normalize the input
+  let cleanText = text.trim();
+  
+  // First check for exact preset responses
+  const presetResponse = checkForPresetResponse(cleanText);
   if (presetResponse) {
     return presetResponse;
   }
 
-  // Clean and normalize the input
-  let cleanText = text.trim();
-  if (!cleanText.endsWith('.')) {
+  // Add a period if there isn't one
+  if (!cleanText.endsWith('.') && !cleanText.endsWith('?') && !cleanText.endsWith('!')) {
     cleanText += '.';
   }
 
-  // Extract multi-word phrases first
-  const phrases = extractPhrases(cleanText);
-  if (phrases.length > 0) {
-    // Use the most significant phrases instead of individual words
-    return generateResponseFromPhrases(phrases, cleanText);
-  }
-
-  // Break into sentences
-  const sentences = cleanText.split(/(?<=\.)\s+/);
-  const result = [];
+  // Break the input into sentences
+  const sentences = cleanText.split(/(?<=[.!?])\s+/);
   
-  // Process each sentence to preserve core meaning
-  for (let i = 0; i < Math.min(sentences.length, 2); i++) {
+  // Generate two Milchick-style sentences
+  const generatedSentences = [];
+  
+  // Process up to 2 sentences from the input
+  for (let i = 0; i < Math.min(2, sentences.length); i++) {
     const sentence = sentences[i].trim();
     if (!sentence) continue;
     
-    // Extract key words (nouns, verbs) - simple approach
-    const words = sentence.split(' ');
-    const keyWords = words.filter(word => 
-      word.length > 3 && 
-      !['this', 'that', 'with', 'from', 'about', 'would', 'could'].includes(word.toLowerCase())
-    );
+    // Determine the type of sentence
+    const type = determineInputType(sentence);
     
-    // Get 1-2 key words to preserve
-    const keyTerms = keyWords.length > 0 
-      ? keyWords.slice(0, Math.min(2, keyWords.length))
-      : [words[Math.floor(words.length / 2)]]; // Fallback to middle word
+    // Get key terms from the sentence
+    const keyTerms = extractKeyTerms(sentence);
     
-    // Categorize input intent - very basic detection
-    let intentType = 'statement';
-    if (sentence.includes('?')) intentType = 'question';
-    else if (sentence.toLowerCase().startsWith('i want') || 
-             sentence.toLowerCase().startsWith('i would like') ||
-             sentence.toLowerCase().includes('need') ||
-             sentence.toLowerCase().includes('please')) {
-      intentType = 'request';
-    }
-    
-    // Generate appropriate corporate speak based on intent while preserving key terms
-    switch(intentType) {
-      case 'request':
-        result.push(generateRequestResponse(keyTerms));
-        break;
-      case 'question':
-        result.push(generateQuestionResponse(keyTerms));
-        break;
-      default:
-        result.push(generateStatementResponse(keyTerms));
-    }
+    // Generate appropriate response based on sentence type
+    generatedSentences.push(generateSentenceByType(type, keyTerms));
   }
   
-  // If we have less than 2 sentences, add a generic corporate follow-up
-  while (result.length < 2) {
-    result.push(getRandomItem([
-      "This aligns perfectly with our departmental objectives.",
-      "Your compliance with procedure is appreciated.",
-      "Lumon values your continued engagement with the workflow.",
-      "This has been noted in your quarterly evaluation metrics.",
-      "The data refinement process benefits from your participation."
-    ]));
+  // If we don't have 2 sentences yet, add generic corporate sentences
+  while (generatedSentences.length < 2) {
+    generatedSentences.push(generateGenericMilchickSentence());
   }
   
-  return result.join(' ').trim();
+  // Return exactly 2 sentences
+  return generatedSentences.slice(0, 2).join(' ');
+}
+
+/**
+ * Determines the type of input (question, request, complaint, etc.)
+ */
+function determineInputType(text) {
+  const lowerText = text.toLowerCase();
+  
+  if (text.includes('?')) {
+    return 'question';
+  } else if (lowerText.includes('thank') || lowerText.includes('appreciate') || lowerText.includes('grateful')) {
+    return 'appreciation';
+  } else if (lowerText.includes('problem') || lowerText.includes('issue') || lowerText.includes('broken') || 
+           lowerText.includes('doesn\'t work') || lowerText.includes('not working')) {
+    return 'complaint';
+  } else if (lowerText.startsWith('i want') || lowerText.startsWith('i need') || 
+           lowerText.startsWith('i would like') || lowerText.startsWith('please') || 
+           lowerText.startsWith('can you') || lowerText.startsWith('could you')) {
+    return 'request';
+  } else if (lowerText.includes('hello') || lowerText.includes('hi ') || lowerText.startsWith('hi') || 
+           lowerText.includes('greetings') || lowerText.includes('good morning') || 
+           lowerText.includes('good afternoon') || lowerText.includes('good evening')) {
+    return 'greeting';
+  } else {
+    return 'statement';
+  }
+}
+
+/**
+ * Extracts key terms from a sentence for more relevant responses
+ */
+function extractKeyTerms(sentence) {
+  // Remove common stop words
+  const stopWords = ['a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'with', 'about', 
+                    'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 
+                    'did', 'will', 'would', 'shall', 'should', 'can', 'could', 'may', 'might', 'must', 
+                    'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 
+                    'this', 'that', 'these', 'those'];
+  
+  // Extract words, remove punctuation
+  const words = sentence.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/);
+  
+  // Filter out stop words and very short words
+  const keyWords = words.filter(word => !stopWords.includes(word) && word.length > 2);
+  
+  // Take up to 3 key words
+  return keyWords.slice(0, 3);
+}
+
+/**
+ * Generates a sentence based on input type and key terms
+ */
+function generateSentenceByType(type, keyTerms) {
+  // Make terms more corporate
+  const corporateTerms = keyTerms.map(corporatize);
+  
+  // Choose a random term for focus
+  const focusTerm = corporateTerms.length > 0 ? getRandomItem(corporateTerms) : 'procedural matter';
+  
+  switch(type) {
+    case 'question':
+      return getRandomItem([
+        `I'm pleased to provide clarification regarding ${focusTerm} in accordance with departmental communication protocols.`,
+        `Your inquiry about ${focusTerm} has been processed through our knowledge transfer system with optimal efficacy.`,
+        `The ${focusTerm} information you seek is accessible within parameters established by section 4.3 of the handbook.`,
+        `I'm authorized to convey that ${focusTerm} falls within the scope of approved operational guidelines as determined by management.`,
+        `Our department maintains comprehensive documentation on ${focusTerm} which I'm delighted to verbally summarize for your benefit.`
+      ]);
+      
+    case 'request':
+      return getRandomItem([
+        `Your request concerning ${focusTerm} has been logged in our procedural management system with appropriate priority designation.`,
+        `I've initiated the formal protocol to process your ${focusTerm} requirements through the proper administrative channels.`,
+        `Your ${focusTerm} request has been acknowledged and will be allocated appropriate resources in accordance with departmental guidelines.`,
+        `The system has registered your ${focusTerm} request which will be addressed according to established workflow optimization procedures.`,
+        `I'm pleased to facilitate your ${focusTerm} requirement in accordance with our commitment to interdepartmental harmony.`
+      ]);
+      
+    case 'complaint':
+      return getRandomItem([
+        `I acknowledge your concerns regarding ${focusTerm} and have initiated a proper investigation through our designated resolution channels.`,
+        `Your feedback about ${focusTerm} has been documented as an actionable item in our continuous improvement framework.`,
+        `The ${focusTerm} matter you've identified has been escalated to the appropriate team for prompt operational recalibration.`,
+        `Our department takes your ${focusTerm} concerns seriously and has implemented appropriate remediation protocols.`,
+        `I appreciate you bringing this ${focusTerm} situation to my attention as it enables our quality assurance mechanisms to function optimally.`
+      ]);
+      
+    case 'appreciation':
+      return getRandomItem([
+        `Your positive acknowledgment of ${focusTerm} contributes significantly to our workplace harmony metrics.`,
+        `I'm pleased to document your satisfaction with ${focusTerm} in our departmental performance evaluation system.`,
+        `Your appreciation for ${focusTerm} reflects the kind of collaborative spirit that Lumon seeks to cultivate.`,
+        `The gratitude you've expressed regarding ${focusTerm} exemplifies the mutually beneficial relationship we strive to maintain.`,
+        `I'll ensure your positive feedback about ${focusTerm} is noted in our interdepartmental communications report.`
+      ]);
+      
+    case 'greeting':
+      return getRandomItem([
+        `I'm delighted to acknowledge your communicative initiation in accordance with established greeting protocols.`,
+        `Your engagement with proper interpersonal acknowledgment procedures is most appreciated and duly noted.`,
+        `I extend an optimally calibrated welcome response that aligns with our departmental communication standards.`,
+        `It's a pleasure to participate in this preliminary verbal exchange that establishes our productive dialog framework.`,
+        `I acknowledge your greeting and am prepared to facilitate a productive communicative exchange in accordance with company policy.`
+      ]);
+      
+    case 'statement':
+    default:
+      return getRandomItem([
+        `I appreciate your perspective on ${focusTerm}, which has been documented in our informational database.`,
+        `Your observation regarding ${focusTerm} aligns with our department's ongoing strategic initiatives for operational excellence.`,
+        `The information you've shared about ${focusTerm} contributes valuable insights to our collective knowledge repository.`,
+        `I've noted your statement concerning ${focusTerm} which demonstrates commendable awareness of our procedural frameworks.`,
+        `Your commentary on ${focusTerm} has been processed and categorized according to our information management protocols.`
+      ]);
+  }
+}
+
+/**
+ * Generates a generic Milchick-style sentence
+ */
+function generateGenericMilchickSentence() {
+  return getRandomItem([
+    "This aligns perfectly with our departmental objectives and workplace harmony principles.",
+    "Your compliance with procedural guidelines is appreciated and has been noted in your file.",
+    "Lumon values your continued engagement with our established workflow optimization framework.",
+    "This interaction has been logged in your quarterly evaluation metrics for future reference.",
+    "The data refinement process benefits from your participation and procedural adherence.",
+    "Your contribution to interdepartmental cohesion is both recognized and appreciated.",
+    "This exchange exemplifies the kind of collaborative efficiency that Lumon encourages.",
+    "Please be assured that all appropriate protocols are being followed in this matter.",
+    "Rest assured that your input has been processed according to established guidelines.",
+    "Your continued commitment to operational excellence reflects positively on your department."
+  ]);
+}
+
+/**
+ * Makes a term sound more corporate
+ */
+function corporatize(term) {
+  // Clean the term
+  term = term.toLowerCase().replace(/[^a-z0-9]/g, '');
+  
+  // Common corporate replacements
+  const corporateDict = {
+    "eat": "nutritional intake protocol",
+    "food": "sustenance resources",
+    "lunch": "midday nourishment period",
+    "dinner": "evening sustenance allocation",
+    "breakfast": "morning productivity fuel",
+    "meeting": "collaborative synergy session",
+    "talk": "verbal information exchange",
+    "help": "procedural assistance",
+    "want": "expressed preference",
+    "like": "positive alignment indicator",
+    "need": "operational requirement",
+    "work": "productivity output",
+    "problem": "operational challenge",
+    "fix": "remediation implementation",
+    "break": "temporary workflow cessation",
+    "change": "strategic modification",
+    "update": "version enhancement",
+    "new": "newly implemented resource",
+    "old": "legacy system component",
+    "big": "substantial-scale element",
+    "small": "minimal-footprint component",
+    "fast": "high-efficiency process",
+    "slow": "deliberate-paced procedure",
+    "good": "optimal-status indicator",
+    "bad": "sub-optimal condition marker",
+    "money": "financial resource allocation",
+    "pay": "monetary compensation system",
+    "home": "residential endpoint location",
+    "office": "productivity environment",
+    "computer": "data processing terminal",
+    "phone": "communication device",
+    "email": "digital correspondence protocol",
+    "report": "information aggregation document",
+    "manager": "departmental oversight facilitator",
+    "team": "collaborative efficiency unit",
+    "project": "strategic initiative implementation",
+    "deadline": "temporal completion parameter",
+    "customer": "external value recipient",
+    "product": "market-facing deliverable",
+    "service": "value-delivery mechanism",
+    "quality": "excellence adherence metric",
+    "time": "chronological resource allocation",
+    "day": "operational time segment",
+    "week": "multi-day productivity cycle",
+    "month": "extended planning timeframe",
+    "year": "annual performance period",
+    "plan": "strategic operational framework",
+    "goal": "targeted outcome parameter",
+    "result": "procedural consequence metric"
+  };
+  
+  // If we have a direct replacement, use it
+  if (corporateDict[term]) {
+    return corporateDict[term];
+  }
+  
+  // Otherwise, add a corporate adjective
+  const corporateAdjectives = [
+    "optimized", "strategic", "aligned", "productivity-focused",
+    "sanctioned", "approved", "procedural", "workflow-oriented",
+    "metric-driven", "harmonious", "refined", "standardized",
+    "integrated", "cross-functional", "value-added", "synergistic",
+    "resource-appropriate", "quality-assured", "performance-enhanced",
+    "enterprise-level", "efficiency-optimized", "protocol-compliant"
+  ];
+  
+  return `${getRandomItem(corporateAdjectives)} ${term} protocol`;
 }
 
 /**
@@ -644,61 +771,6 @@ function applyTemplate(templates, keyTerms) {
 }
 
 /**
- * Makes a term sound more corporate
- */
-function corporatize(term) {
-  // Clean the term
-  term = term.toLowerCase().replace(/[^a-z0-9]/g, '');
-  
-  // Common corporate replacements
-  const corporateDict = {
-    "eat": "nutritional intake",
-    "food": "sustenance resources",
-    "lunch": "midday nourishment period",
-    "dinner": "evening sustenance allocation",
-    "breakfast": "morning productivity fuel",
-    "meeting": "collaborative synergy session",
-    "talk": "verbal information exchange",
-    "help": "procedural assistance",
-    "want": "express preference for",
-    "like": "indicate positive alignment with",
-    "need": "require",
-    "work": "productivity output",
-    "problem": "operational challenge",
-    "fix": "implement corrective measures for",
-    "break": "temporary workflow cessation",
-    "change": "strategic modification",
-    "update": "version enhancement",
-    "new": "newly implemented",
-    "old": "legacy",
-    "big": "substantial",
-    "small": "minimal footprint",
-    "fast": "high-efficiency",
-    "slow": "deliberate-paced",
-    "good": "optimal",
-    "bad": "sub-optimal",
-    "money": "financial resources",
-    "pay": "monetary compensation",
-    "take": "implement utilization of",
-    "from": "originating within"
-  };
-  
-  // If we have a direct replacement, use it
-  if (corporateDict[term]) {
-    return corporateDict[term];
-  }
-  
-  // Otherwise, add a corporate adjective
-  const corporateAdjectives = [
-    "optimized", "strategic", "aligned", "productivity-focused",
-    "sanctioned", "approved", "procedural", "workflow-oriented",
-    "metric-driven", "harmonious", "refined", "standardized"
-  ];
-  
-  return `${getRandomItem(corporateAdjectives)} ${term}`;
-}
-
-/**
  * Main function to process the input text
  */
 async function milchickify() {
@@ -713,17 +785,46 @@ async function milchickify() {
   loadingIndicator.classList.remove('hidden');
 
   try {
-    const result = useFallbackMode 
-      ? improvedFallbackMilchickify(inputText)
-      : await transformWithAI(inputText);
+    let result;
+    
+    if (useFallbackMode) {
+      // Use enhanced fallback directly in fallback mode
+      result = enhancedFallbackMilchickify(inputText);
+      apiProvider = 'local';
+    } else {
+      // In AI mode, try APIs first but with better fallback
+      try {
+        // First try OpenAI
+        apiProvider = 'openai';
+        console.log("Trying OpenAI...");
+        result = await transformWithOpenAI(inputText);
+        
+        // If OpenAI fails, try Hugging Face
+        if (!result) {
+          apiProvider = 'huggingface';
+          console.log("OpenAI failed, trying Hugging Face...");
+          result = await transformWithHuggingFace(inputText);
+        }
+      } catch (error) {
+        console.error("API Error:", error);
+        result = null;
+      }
+      
+      // If APIs fail, use enhanced fallback
+      if (!result) {
+        apiProvider = 'local';
+        console.log("All APIs failed, using enhanced fallback...");
+        result = enhancedFallbackMilchickify(inputText);
+      }
+    }
 
     outputText.textContent = result;
     
-    // Optionally display which API was used (can be removed if not wanted)
+    // Optionally display which API was used
     const apiSource = document.getElementById('apiSource');
     if (apiSource) {
-      let sourceText = 'Using local processing';
-      if (!useFallbackMode) {
+      let sourceText = 'Using enhanced local processing';
+      if (!useFallbackMode && apiProvider !== 'local') {
         if (apiProvider === 'openai') sourceText = 'Using OpenAI';
         else if (apiProvider === 'huggingface') sourceText = 'Using Hugging Face';
         else if (apiProvider === 'preset') sourceText = 'Using preset response';
@@ -734,12 +835,13 @@ async function milchickify() {
     outputBox.classList.remove('hidden');
   } catch (error) {
     console.error('Error:', error);
-    outputText.textContent = improvedFallbackMilchickify(inputText);
+    // Always use enhanced fallback on errors
+    outputText.textContent = enhancedFallbackMilchickify(inputText);
     
     // Update API source display on error
     const apiSource = document.getElementById('apiSource');
     if (apiSource) {
-      apiSource.textContent = 'Using local processing (fallback)';
+      apiSource.textContent = 'Using enhanced local processing (fallback)';
     }
     
     outputBox.classList.remove('hidden');
@@ -773,7 +875,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const toggleBtn = document.getElementById('toggleModeBtn');
   if (toggleBtn) {
     toggleBtn.textContent = 'Switch to Basic Mode';
-    toggleBtn.classList.add('fallback-mode');
+    toggleBtn.classList.toggle('fallback-mode', useFallbackMode);
   }
   
   // Optional: Add API source indicator element if it doesn't exist
