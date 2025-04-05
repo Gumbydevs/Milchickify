@@ -1,7 +1,7 @@
 // API Configuration
 // OpenAI (Primary)
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-// Format is important - remove any "sk-proj-" prefix if the key starts with it
+// Format is important - remove any "sk-proj-" prefix if the key starts with it 
 const OPENAI_API_KEY = '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';
 const OPENAI_MODEL = 'gpt-3.5-turbo'; // Most cost-effective option
 
