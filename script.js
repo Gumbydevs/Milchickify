@@ -195,4 +195,78 @@ function fallbackMilchickify(text) {
       const suffix = getRandomItem(milchickSuffixes);
       milchickifiedSentences.push(`${prefix} ${middle} ${corpTerm}, ${suffix}.`);
     } else {
-      const words = sentence.split('
+      const words = sentence.split(' ');
+      const numTermsToAdd = Math.min(Math.floor(wordCount / 5) + 1, 2);
+      for (let j = 0; j < numTermsToAdd; j++) {
+        const insertPos = Math.floor(Math.random() * (words.length - 1)) + 1;
+        const corpTerm = getRandomItem(milchickCorporateTerms);
+        words.splice(insertPos, 0, corpTerm);
+      }
+      const suffix = getRandomItem(milchickSuffixes);
+      milchickifiedSentences.push(words.join(' ') + ', ' + suffix + '.');
+    }
+  }
+
+  return milchickifiedSentences.join(' ');
+}
+
+/**
+ * Main function to process the input text
+ */
+async function milchickify() {
+  const inputText = document.getElementById('inputText').value.trim();
+  if (!inputText) return;
+
+  const outputBox = document.getElementById('outputBox');
+  const outputText = document.getElementById('outputText');
+  const loadingIndicator = document.getElementById('loadingIndicator');
+
+  outputBox.classList.add('hidden');
+  loadingIndicator.classList.remove('hidden');
+
+  try {
+    const result = useFallbackMode 
+      ? fallbackMilchickify(inputText)
+      : await transformWithAI(inputText);
+
+    outputText.textContent = result;
+    outputBox.classList.remove('hidden');
+  } catch (error) {
+    console.error('Error:', error);
+    outputText.textContent = fallbackMilchickify(inputText);
+    outputBox.classList.remove('hidden');
+  } finally {
+    loadingIndicator.classList.add('hidden');
+  }
+}
+
+/**
+ * Copies the output text to clipboard
+ */
+function copyOutput() {
+  const outputText = document.getElementById('outputText').textContent;
+  navigator.clipboard.writeText(outputText)
+    .then(() => alert('Copied to clipboard!'))
+    .catch(err => console.error('Failed to copy:', err));
+}
+
+// Attach functions to the global window object so that inline HTML events can access them
+window.milchickify = milchickify;
+window.copyOutput = copyOutput;
+window.toggleFallbackMode = toggleFallbackMode;
+
+// Optionally, also attach the click event listeners after DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  const button = document.querySelector('button[onclick="milchickify()"]');
+  if (button) {
+    button.addEventListener('click', function() {
+      milchickify();
+    });
+  }
+
+  const toggleBtn = document.getElementById('toggleModeBtn');
+  if (toggleBtn) {
+    toggleBtn.textContent = 'Switch to AI Mode';
+    toggleBtn.classList.add('fallback-mode');
+  }
+});
