@@ -132,6 +132,9 @@ function getRandomItem(array) {
 /**
  * Transforms text using Hugging Face's API to match Milchick's style
  */
+/**
+ * Transforms text using Hugging Face's API to match Milchick's style
+ */
 async function transformWithAI(text) {
   const randomParam = Math.random().toString(36).substring(7);
   const prompt = `You are Milchick, a disturbingly chipper and bureaucratic middle manager from Lumon Industries in the TV show Severance.
@@ -139,17 +142,21 @@ async function transformWithAI(text) {
 SYSTEM: Respond ONLY with the transformed text. Do not include any acknowledgments, labels, or metadata.
 
 STYLE GUIDE:
-- Transform the input into your unique corporate style
+- Transform the input into your unique corporate style while PRESERVING THE CORE MEANING
 - Output must be exactly two sentences
 - Make it concise and unsettlingly corporate
 - Use bureaucratic language and Lumon-appropriate terminology
+- IMPORTANT: Maintain the original intent and key information from the input
 
 EXAMPLES:
 Input: I need help with my task.
-Output: Assistance with your mission-critical deliverable will be facilitated. Operational enhancements are underway.
+Output: Your mission-critical deliverable will receive immediate facilitation support. Rest assured that all necessary resources will be allocated to optimize your performance metrics.
 
 Input: I would like this program to work.
-Output: Functionality enhancements are underway. System optimization is in progress.
+Output: Functionality optimization of the designated software solution has been prioritized for your benefit. Our technical refinement process will ensure operational excellence in alignment with department standards.
+
+Input: The coffee machine is broken again.
+Output: The beverage dispensation unit is experiencing a temporary operational disruption that requires immediate maintenance intervention. A service request has been expedited to restore workplace refreshment harmony.
 
 ###
 INPUT TEXT: "${text}" ${randomParam}
@@ -167,7 +174,7 @@ INPUT TEXT: "${text}" ${randomParam}
         inputs: prompt,
         parameters: {
           max_new_tokens: 150,
-          temperature: 0.9,
+          temperature: 0.7,
           return_full_text: false
         }
       })
