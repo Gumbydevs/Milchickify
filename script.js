@@ -1,23 +1,15 @@
 // Configuration for Hugging Face API integration
 const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2';
-// Embedded API key - replace with your actual Hugging Face API key
-const API_KEY = process.env.HUGGINGFACE_API_KEY || 'fallback-to-basic-if-no-key';
 
+// For Vercel client-side env variables, they need to be exposed to the browser
+// The line below assumes you've created a vercel.json with the env setup
+const API_KEY = typeof HUGGINGFACE_API_KEY !== 'undefined' ? HUGGINGFACE_API_KEY : '';
 
 // UI state variables
 let isProcessing = false;
 let useFallback = false;
 
-// Sample phrases that define Milchick's style (used as backup and examples)
-const milchickPhrases = [
-  "I want to express my gratitude for your outstanding work",
-  "It brings me immense pleasure to acknowledge your contributions",
-  "I must commend you on your exemplary performance metrics",
-  "Your diligent efforts deserve recognition at our next wellness session",
-  "Allow me to extend my appreciation for your synergy with our core values"
-];
-
-// Milchick-style phrases and expressions for fallback
+// Milchick-style phrases and expressions
 const milchickPrefixes = [
   "I want to express my gratitude for",
   "I'm delighted to inform you about",
@@ -74,8 +66,6 @@ function toggleFallbackMode() {
 
 /**
  * Returns a random item from an array
- * @param {Array} array - The array to select from
- * @return {*} A random element from the array
  */
 function getRandomItem(array) {
   return array[Math.floor(Math.random() * array.length)];
@@ -83,10 +73,14 @@ function getRandomItem(array) {
 
 /**
  * Transforms text using Hugging Face's API to match Milchick's style
- * @param {string} text - The input text to transform
- * @return {Promise<string>} The Milchickified text
  */
 async function transformWithAI(text) {
+  // If no API key is available or it's empty, use fallback
+  if (!API_KEY) {
+    console.warn('No API key available, falling back to basic mode');
+    return null; // Will trigger fallback
+  }
+
   try {
     const prompt = `<s>[INST] You are Irving Milchick from the TV show Severance. Transform the following text into your distinctive corporate management style. Use flowery corporate language, excessive positivity, vague corporate jargon, and maintain a tone that is simultaneously encouraging yet subtly threatening. Make sure to reference Lumon's values and use phrases like "diligent workers" or mention wellness sessions.
 
@@ -140,8 +134,6 @@ ${text} [/INST]</s>`;
 
 /**
  * Fallback function that uses basic rules to transform text
- * @param {string} text - The input text to transform
- * @return {string} The Milchickified text
  */
 function fallbackMilchickify(text) {
   // Handle empty input
