@@ -133,6 +133,8 @@ function getRandomItem(array) {
  * Transforms text using Hugging Face's API to match Milchick's style
  */
 async function transformWithAI(text) {
+  // Append a random string to force a fresh response
+  const randomParam = Math.random().toString(36).substring(7);
   const prompt = `You are Milchick, a disturbingly chipper and bureaucratic middle manager from Lumon Industries in the TV show Severance.
 Reword the following sentence into your unique corporate style. The output must consist of exactly two sentences. Do not add any acknowledgment or confirmation—simply transform the input into concise, unsettling corporate-speak.
 Examples:
@@ -140,14 +142,15 @@ Input: I need help with my task.
 Output: Assistance with your mission-critical deliverable will be facilitated. Operational enhancements are underway.
 Input: I would like this program to work.
 Output: Functionality enhancements are underway. System optimization is in progress.
-Now transform this: "${text}"`;
+Now transform this: "${text}" ${randomParam}`;
 
   try {
     const response = await fetch(HUGGINGFACE_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`
+        'Authorization': `Bearer ${API_KEY}`,
+        'Cache-Control': 'no-cache'
       },
       body: JSON.stringify({
         inputs: prompt,
@@ -164,9 +167,11 @@ Now transform this: "${text}"`;
     }
 
     let generatedText = (await response.json())[0]?.generated_text || fallbackMilchickify(text);
-    // Remove any leading "Output:" or "Transformation:" if present
-    generatedText = generatedText.replace(/^(Output:|Transformation:)\s*/i, '');
-    return generatedText.trim();
+    // Remove any leading "Output:" or "Transformation:" from each line
+    generatedText = generatedText.split('\n').map(line =>
+      line.replace(/^(Output:|Transformation:)\s*/i, '')
+    ).join(' ').trim();
+    return generatedText;
   } catch (error) {
     console.error("API Error:", error);
     return fallbackMilchickify(text);
