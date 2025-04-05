@@ -1,7 +1,8 @@
 // API Configuration
 // OpenAI (Primary)
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const OPENAI_API_KEY = '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';
+// Format is important - remove any "sk-proj-" prefix if the key starts with it
+const OPENAI_API_KEY = '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'.replace('sk-proj-', 'sk-');
 const OPENAI_MODEL = 'gpt-3.5-turbo'; // Most cost-effective option
 
 // Hugging Face (Backup)
@@ -12,7 +13,7 @@ const HF_API_KEY = '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';
 // UI state variables
 let isProcessing = false;
 let useFallbackMode = false;
-let apiProvider = 'openai'; // 'openai', 'huggingface', or 'local'
+let apiProvider = 'local'; // 'openai', 'huggingface', or 'local'
 
 // Basic mode transformations
 const corporateReplacements = {
@@ -133,6 +134,22 @@ function toggleFallbackMode() {
 function getRandomItem(array) {
   return array[Math.floor(Math.random() * array.length)];
 }
+
+/**
+ * Fallback responses for common inputs
+ */
+const presetResponses = {
+  "break": "Your temporary productivity pause request has been acknowledged and processed accordingly. Please note that optimal refueling intervals are critical to maintaining peak workplace efficiency metrics.",
+  "lunch": "Your midday nutritional intake period has been scheduled in accordance with departmental guidelines. The sustenance acquisition and consumption process is essential for maintaining optimal performance levels throughout the workday.",
+  "tired": "I've noted your current sub-optimal energy state in your personnel file for further evaluation. Remember that Lumon provides precisely calibrated wellness sessions designed to reinvigorate your productivity matrix.",
+  "vacation": "Your temporary workplace absence request has been forwarded to the appropriate channels for procedural review. Please be advised that all schedule modifications must align with departmental harmony protocols as outlined in section 5.7 of your handbook.",
+  "sick": "Your temporary physiological disruption has been documented in our wellness tracking system. Lumon values your prompt return to optimal functionality in accordance with established health and productivity guidelines.",
+  "quit": "I must inform you that separation discussions require formal documentation through established departmental channels. Your continued contribution to our collective workplace harmony remains highly valued by Lumon management.",
+  "hello": "I'm delighted to acknowledge your communicative initiation in accordance with established greeting protocols. Your engagement contributes significantly to our departmental cohesion metrics.",
+  "meeting": "Your collaborative synergy session has been documented in our enterprise scheduling framework. These strategic alignment gatherings are essential for maintaining optimal cross-functional workflow dynamics.",
+  "weekend": "I'm pleased to confirm your upcoming scheduled non-work period in alignment with standard temporal allocation protocols. Such restorative intervals are designed to optimize subsequent productivity metrics.",
+  "salary": "Your inquiry regarding financial compensation structures has been directed to our appropriate resource allocation department. All monetary disbursement decisions are made in accordance with Lumon's comprehensive performance evaluation framework."
+};
 
 /**
  * Transform text using OpenAI
@@ -280,11 +297,47 @@ INPUT TEXT: "${text}" ${randomParam}
 }
 
 /**
+ * Check for preset responses based on keywords
+ */
+function checkForPresetResponse(text) {
+  const lowerText = text.toLowerCase();
+  
+  // Check for direct keywords
+  for (const [keyword, response] of Object.entries(presetResponses)) {
+    if (lowerText.includes(keyword)) {
+      return response;
+    }
+  }
+  
+  // Check for common phrases
+  if (lowerText.includes("take a break") || lowerText.includes("need a break")) {
+    return presetResponses["break"];
+  }
+  
+  if (lowerText.includes("eat") || lowerText.includes("food")) {
+    return presetResponses["lunch"];
+  }
+  
+  if (lowerText.includes("day off") || lowerText.includes("time off")) {
+    return presetResponses["vacation"];
+  }
+  
+  return null;
+}
+
+/**
  * Transforms text using available APIs or falls back to local implementation
  */
 async function transformWithAI(text) {
   try {
-    // First try OpenAI
+    // Check for preset responses first
+    const presetResponse = checkForPresetResponse(text);
+    if (presetResponse) {
+      apiProvider = 'preset';
+      return presetResponse;
+    }
+    
+    // Next try OpenAI
     apiProvider = 'openai';
     console.log("Trying OpenAI...");
     let result = await transformWithOpenAI(text);
@@ -319,10 +372,23 @@ function improvedFallbackMilchickify(text) {
     return '';
   }
 
+  // Check for preset responses first (again, as a safety)
+  const presetResponse = checkForPresetResponse(text);
+  if (presetResponse) {
+    return presetResponse;
+  }
+
   // Clean and normalize the input
   let cleanText = text.trim();
   if (!cleanText.endsWith('.')) {
     cleanText += '.';
+  }
+
+  // Extract multi-word phrases first
+  const phrases = extractPhrases(cleanText);
+  if (phrases.length > 0) {
+    // Use the most significant phrases instead of individual words
+    return generateResponseFromPhrases(phrases, cleanText);
   }
 
   // Break into sentences
@@ -351,8 +417,8 @@ function improvedFallbackMilchickify(text) {
     if (sentence.includes('?')) intentType = 'question';
     else if (sentence.toLowerCase().startsWith('i want') || 
              sentence.toLowerCase().startsWith('i would like') ||
-             sentence.toLowerCase().startsWith('please') ||
-             sentence.toLowerCase().includes('need')) {
+             sentence.toLowerCase().includes('need') ||
+             sentence.toLowerCase().includes('please')) {
       intentType = 'request';
     }
     
@@ -384,7 +450,98 @@ function improvedFallbackMilchickify(text) {
 }
 
 /**
- * Generates a corporate response to a  request while preserving key terms
+ * Extract meaningful phrases from text
+ */
+function extractPhrases(text) {
+  const lowerText = text.toLowerCase();
+  const commonPhrases = [
+    "take a break", "need a break", "would like a break", "want a break",
+    "go home", "leave work", "leave early",
+    "day off", "time off", "vacation day", "sick day",
+    "more money", "pay raise", "salary increase", "promotion",
+    "new job", "quit job", "resign", "leave company",
+    "schedule meeting", "set up meeting", "have meeting",
+    "need help", "would like help", "want assistance"
+  ];
+  
+  const foundPhrases = [];
+  for (const phrase of commonPhrases) {
+    if (lowerText.includes(phrase)) {
+      foundPhrases.push(phrase);
+    }
+  }
+  
+  return foundPhrases;
+}
+
+/**
+ * Generate response based on phrases instead of individual words
+ */
+function generateResponseFromPhrases(phrases, originalText) {
+  // Map phrases to more suitable corporate replacements
+  const phraseReplacements = {
+    "take a break": "temporary productivity pause",
+    "need a break": "productivity interval recalibration",
+    "would like a break": "brief workflow cessation",
+    "want a break": "momentary task suspension",
+    "go home": "conclude on-site presence",
+    "leave work": "transition to off-site status",
+    "leave early": "modified temporal endpoint",
+    "day off": "scheduled non-productivity interval",
+    "time off": "authorized absence period",
+    "vacation day": "extended wellness allocation",
+    "sick day": "health restoration protocol",
+    "more money": "compensation adjustment",
+    "pay raise": "financial incentive enhancement",
+    "salary increase": "monetary recognition upgrade",
+    "promotion": "vertical role realignment",
+    "new job": "position reconfiguration",
+    "quit job": "employment relationship conclusion",
+    "resign": "professional disengagement process",
+    "leave company": "organizational separation",
+    "schedule meeting": "collaborative synergy session arrangement",
+    "set up meeting": "interpersonal alignment coordination",
+    "have meeting": "information exchange assembly",
+    "need help": "assistance requirement",
+    "would like help": "support service request",
+    "want assistance": "facilitation needs"
+  };
+  
+  // Select the most significant phrase
+  const mainPhrase = phrases[0];
+  const corporatePhrase = phraseReplacements[mainPhrase] || mainPhrase;
+  
+  // Generate response based on the type of phrase
+  if (mainPhrase.includes("break") || mainPhrase.includes("leave") || mainPhrase.includes("home")) {
+    return `Your request for a ${corporatePhrase} has been logged in our workflow management system with appropriate priority designation. Please be advised that all temporary productivity adjustments must align with departmental harmony metrics as outlined in section 4.3 of your handbook.`;
+  }
+  
+  if (mainPhrase.includes("off") || mainPhrase.includes("vacation") || mainPhrase.includes("sick")) {
+    return `I've submitted your ${corporatePhrase} request to the appropriate administrative channels for procedural review and approval. Lumon values your commitment to advance notification of scheduled non-productivity intervals in alignment with our operational excellence framework.`;
+  }
+  
+  if (mainPhrase.includes("money") || mainPhrase.includes("pay") || mainPhrase.includes("salary") || mainPhrase.includes("promotion")) {
+    return `Your ${corporatePhrase} inquiry has been documented and will be addressed during your next quarterly assessment cycle. Please be assured that all compensation adjustments are processed in strict accordance with Lumon's comprehensive performance evaluation metrics.`;
+  }
+  
+  if (mainPhrase.includes("quit") || mainPhrase.includes("resign") || mainPhrase.includes("leave company")) {
+    return `I must inform you that ${corporatePhrase} discussions require completion of standard documentation through established channels as outlined in your onboarding materials. Your continued contribution to our collective enterprise remains highly valued by management and the board.`;
+  }
+  
+  if (mainPhrase.includes("meeting") || mainPhrase.includes("schedule")) {
+    return `Your request to initiate a ${corporatePhrase} has been registered in our enterprise calendar management protocol. All participants will receive appropriate notification in alignment with our interdepartmental communication guidelines.`;
+  }
+  
+  if (mainPhrase.includes("help") || mainPhrase.includes("assistance")) {
+    return `I'm pleased to acknowledge your ${corporatePhrase} and have allocated appropriate resources to address your current needs. Lumon is committed to providing optimized support structures to ensure maximum departmental harmony and productivity.`;
+  }
+  
+  // Default response if no specific category is matched
+  return `Your communication regarding ${corporatePhrase} has been processed according to standard protocols. All subsequent actions will proceed in alignment with departmental guidelines and Lumon's operational excellence framework.`;
+}
+
+/**
+ * Generates a corporate response to a request while preserving key terms
  */
 function generateRequestResponse(keyTerms) {
   const templates = [
@@ -460,7 +617,7 @@ function corporatize(term) {
     "work": "productivity output",
     "problem": "operational challenge",
     "fix": "implement corrective measures for",
-    "break": "temporary cessation of function",
+    "break": "temporary workflow cessation",
     "change": "strategic modification",
     "update": "version enhancement",
     "new": "newly implemented",
@@ -472,7 +629,9 @@ function corporatize(term) {
     "good": "optimal",
     "bad": "sub-optimal",
     "money": "financial resources",
-    "pay": "monetary compensation"
+    "pay": "monetary compensation",
+    "take": "implement utilization of",
+    "from": "originating within"
   };
   
   // If we have a direct replacement, use it
@@ -514,9 +673,13 @@ async function milchickify() {
     // Optionally display which API was used (can be removed if not wanted)
     const apiSource = document.getElementById('apiSource');
     if (apiSource) {
-      apiSource.textContent = useFallbackMode 
-        ? 'Using local processing' 
-        : `Using ${apiProvider} AI`;
+      let sourceText = 'Using local processing';
+      if (!useFallbackMode) {
+        if (apiProvider === 'openai') sourceText = 'Using OpenAI';
+        else if (apiProvider === 'huggingface') sourceText = 'Using Hugging Face';
+        else if (apiProvider === 'preset') sourceText = 'Using preset response';
+      }
+      apiSource.textContent = sourceText;
     }
     
     outputBox.classList.remove('hidden');
@@ -575,7 +738,7 @@ document.addEventListener('DOMContentLoaded', function() {
       sourceIndicator.style.color = '#666';
       sourceIndicator.style.textAlign = 'center';
       sourceIndicator.style.marginTop = '0.5rem';
-      sourceIndicator.textContent = 'Using OpenAI AI';
+      sourceIndicator.textContent = 'Using local processing';
       outputBox.appendChild(sourceIndicator);
     }
   }
