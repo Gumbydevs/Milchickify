@@ -133,13 +133,6 @@ function getRandomItem(array) {
  */
 async function transformWithAI(text) {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-    // Improved prompt for better Milchick-style responses
-    const milchickPrompt = `Rewrite this sentence in an elaborate, polite but condescending, corporate language flourish like the character Mr. Milchick from the show Severance who uses flowery language, excessive corporate jargon, and references to company values while maintaining a subtly threatening tone: "${text}"
-Milchick's response: "`;
-    
     const response = await fetch(HUGGINGFACE_API_URL, {
       method: 'POST',
       headers: {
@@ -147,66 +140,24 @@ Milchick's response: "`;
         'Authorization': `Bearer ${API_KEY}`
       },
       body: JSON.stringify({
-        inputs: milchickPrompt,
+        inputs: text,
         parameters: {
-          max_length: 150,
-          temperature: 0.8,
+          max_new_tokens: 100,
+          temperature: 0.7,
           return_full_text: false
         }
-      }),
-      signal: controller.signal
+      })
     });
 
-    clearTimeout(timeoutId);
-    
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(errorData.error || `API request failed with status ${response.status}`);
+      throw new Error(`API request failed with status ${response.status}`);
     }
-    
+
     const data = await response.json();
-    
-    if (Array.isArray(data) && data.length > 0 && data[0].generated_text) {
-      let generated = data[0].generated_text.trim();
-      
-      // Look for quoted text and extract it if present
-      const quotedTextMatch = generated.match(/"([^"]+)"/);
-      if (quotedTextMatch && quotedTextMatch[1]) {
-        generated = quotedTextMatch[1];
-      }
-      
-      // Remove any markdown-like syntax or loading text
-      generated = generated.replace(/\[.*?\]/g, '');
-      generated = generated.replace(/Loading\./g, '');
-      generated = generated.replace(/like this:/i, '');
-      
-      // Clean up the sentence structure
-      let sentences = generated.split('.');
-      if (sentences.length > 0) {
-        // Take only the first complete sentence
-        generated = sentences[0].trim();
-        
-        // Make sure it ends with proper punctuation
-        if (!generated.endsWith('.') && !generated.endsWith('!') && !generated.endsWith('?')) {
-          generated += '.';
-        }
-      }
-      
-      // Add Milchick-style suffix if missing
-      if (!generated.toLowerCase().includes('lumon') && 
-          !generated.toLowerCase().includes('value') && 
-          !generated.toLowerCase().includes('spirit')) {
-        const suffix = getRandomItem(milchickSuffixes);
-        generated += ` ${suffix}.`;
-      }
-      
-      return generated;
-    }
-    
-    throw new Error('Invalid API response format');
+    return data[0]?.generated_text || fallbackMilchickify(text);
   } catch (error) {
-    console.error("Error calling Hugging Face API:", error.message);
-    return null;
+    console.error("API Error:", error);
+    return fallbackMilchickify(text);
   }
 }
 
@@ -281,34 +232,15 @@ async function milchickify() {
   loadingIndicator.classList.remove('hidden');
 
   try {
-    let result;
-    if (useFallbackMode) {
-      result = basicMilchickify(inputText);
-      outputText.textContent = result;
-    } else {
-      // AI Mode
-      const response = await fetch(HUGGINGFACE_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`
-        },
-        body: JSON.stringify({
-          prompt: `Transform this text into Lumon corporate speak, maintaining the original meaning but using formal, bureaucratic language similar to Seth Milchick from Severance. Make it sound professional but slightly unsettling: "${inputText}"`,
-          max_tokens: 150,
-          temperature: 0.7
-        })
-      });
-
-      const data = await response.json();
-      result = data.choices[0].text.trim();
-      outputText.textContent = result;
-    }
-
+    const result = useFallbackMode 
+      ? fallbackMilchickify(inputText)
+      : await transformWithAI(inputText);
+    
+    outputText.textContent = result;
     outputBox.classList.remove('hidden');
   } catch (error) {
     console.error('Error:', error);
-    outputText.textContent = 'An error occurred. Please try again or switch to Basic Mode.';
+    outputText.textContent = fallbackMilchickify(inputText);
     outputBox.classList.remove('hidden');
   } finally {
     loadingIndicator.classList.add('hidden');
