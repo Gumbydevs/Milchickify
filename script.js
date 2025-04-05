@@ -2,7 +2,7 @@
 // OpenAI (Primary)
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 // Format is important - remove any "sk-proj-" prefix if the key starts with it
-const OPENAI_API_KEY = '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'.replace('sk-proj-', 'sk-');
+const OPENAI_API_KEY = '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';
 const OPENAI_MODEL = 'gpt-3.5-turbo'; // Most cost-effective option
 
 // Hugging Face (Backup) - Using free models that don't require paid access
