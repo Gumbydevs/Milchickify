@@ -134,12 +134,12 @@ function getRandomItem(array) {
  */
 async function transformWithAI(text) {
   const prompt = `You are Milchick, a disturbingly chipper and bureaucratic middle manager from Lumon Industries in the TV show Severance.
-Reword the following sentence into your unique corporate style. Do not add any acknowledgment or confirmation—simply transform the input into concise, unsettling corporate-speak.
+Reword the following sentence into your unique corporate style. The output must consist of exactly two sentences. Do not add any acknowledgment or confirmation—simply transform the input into concise, unsettling corporate-speak.
 Examples:
 Input: I need help with my task.
-Output: Assistance with your mission-critical deliverable will be facilitated.
+Output: Assistance with your mission-critical deliverable will be facilitated. Operational enhancements are underway.
 Input: I would like this program to work.
-Output: Functionality enhancements are underway.
+Output: Functionality enhancements are underway. System optimization is in progress.
 Now transform this: "${text}"`;
 
   try {
