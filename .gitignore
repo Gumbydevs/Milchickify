@@ -1,0 +1,15 @@
+# Ignore actual env.js with API key
+env.js
+
+# Ignore node modules
+node_modules/
+
+# Ignore build files
+.vercel
+.next
+build
+dist
+
+# Ignore OS files
+.DS_Store
+Thumbs.db

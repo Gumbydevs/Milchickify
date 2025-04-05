@@ -1,9 +1,9 @@
 // Configuration for Hugging Face API integration
 const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2';
 
-// For Vercel client-side env variables, they need to be exposed to the browser
-// The line below assumes you've created a vercel.json with the env setup
-const API_KEY = typeof HUGGINGFACE_API_KEY !== 'undefined' ? HUGGINGFACE_API_KEY : '';
+// We'll check for the global variable, but fall back to an empty string if not found
+// You'll set this in env.js locally, but for Vercel you'll need to add it directly here
+const API_KEY = typeof window.HUGGINGFACE_API_KEY !== 'undefined' ? window.HUGGINGFACE_API_KEY : '';
 
 // UI state variables
 let isProcessing = false;
