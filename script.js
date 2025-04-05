@@ -732,7 +732,7 @@ function generateRequestResponse(keyTerms) {
 }
 
 /**
- * Generates a corporate response to a question while preserving key terms
+ * Generates a corporate response  to a question while preserving key terms
  */
 function generateQuestionResponse(keyTerms) {
   const templates = [
