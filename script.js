@@ -133,7 +133,11 @@ function getRandomItem(array) {
  * Transforms text using Hugging Face's API to match Milchick's style
  */
 async function transformWithAI(text) {
-  const prompt = `You are Milchick from the TV show Severance. Rephrase the following sentence using Lumon-style corporate speak. Be condescending but extremely polite, verbose, overly enthusiastic, and opaque. Retain the original message’s intent.\n\nOriginal: \"${text}\"\nMilchickified:`;
+  const prompt = `You are Milchick, an overly enthusiastic and bureaucratic employee of Lumon Industries from the TV show Severance. 
+Your job is to take normal sentences and rewrite them with excessive corporate jargon, flowery praise, and Lumon-appropriate phrasing. 
+The tone should be professional but eerily enthusiastic and cult-like. You must always sound supportive, cheerful, and slightly unsettling. 
+Avoid sounding casual or modern. Start from the user's message: "${text}" and rewrite it in your style.`;
+
   try {
     const response = await fetch(HUGGINGFACE_API_URL, {
       method: 'POST',
@@ -156,13 +160,13 @@ async function transformWithAI(text) {
     }
 
     const data = await response.json();
-    const raw = data[0]?.generated_text || '';
-    return raw.split('Milchickified:')[1]?.trim() || raw.trim();
+    return data[0]?.generated_text || fallbackMilchickify(text);
   } catch (error) {
     console.error("API Error:", error);
     return fallbackMilchickify(text);
   }
 }
+
 
 /**
  * Enhanced fallback function that uses more sophisticated rules to transform text
