@@ -3,22 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Milchickify</title>
+  <meta name="description" content="Transform your normal text into Milchick-style corporate speak from the TV show Severance">
+  <title>Milchickify - Severance Style Corporate Speech Generator</title>
   <link rel="stylesheet" href="style.css" />
-  <link rel="manifest" href="manifest.json" />
 </head>
 <body>
   <main>
     <h1>Milchickify</h1>
-    <textarea id="inputText" placeholder="Type your plain English here..."></textarea>
-    <button onclick="milchickify()">Milchickify It</button>
+    <p class="subtitle">Transform your ordinary text into Milchick-style corporate speak from Severance</p>
+    
+    <div class="input-container">
+      <textarea id="inputText" placeholder="Type your plain English here..."></textarea>
+      <button onclick="milchickify()">Milchickify It</button>
+    </div>
+    
     <div id="outputBox" class="hidden">
       <p id="outputText"></p>
       <button onclick="copyOutput()">Copy</button>
     </div>
-    <a href="https://www.buymeacoffee.com/gumbydev" target="_blank">☕ Buy me a coffee</a>
+    
+    <a href="https://www.buymeacoffee.com/gumbydev" target="_blank" class="coffee-link">☕ Buy me a coffee</a>
   </main>
 
+  <!-- Script must be loaded at the end of the body -->
   <script src="script.js"></script>
 </body>
 </html>
