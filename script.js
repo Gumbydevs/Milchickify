@@ -1,6 +1,7 @@
-// Configuration for Hugging Face API integration
-const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2';
-let apiKey = ''; // Will be set by user
+// This script is part of the "Milchickify" web app, which transforms text into a corporate management style reminiscent of Irving Milchick from the TV show "Severance".
+// The app uses the Hugging Face API for advanced text transformation, but also has a fallback mechanism for basic text manipulation.
+// Embedded API key handling is included, and the app allows users to save their API key for future use.
+const API_KEY = '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';
 
 // UI state variables
 let isProcessing = false;

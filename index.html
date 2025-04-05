@@ -33,26 +33,6 @@
     
     <a href="https://www.buymeacoffee.com/gumbydev" target="_blank" class="coffee-link">☕ Buy me a coffee</a>
   </main>
-  
-  <!-- API Key Modal -->
-  <div id="apiKeyModal" class="modal">
-    <div class="modal-content">
-      <h2>Enter Hugging Face API Key</h2>
-      <p>To use the AI-powered Milchickify, you need a Hugging Face API key.</p>
-      <ol>
-        <li>Create a free account at <a href="https://huggingface.co/join" target="_blank">huggingface.co</a></li>
-        <li>Get your API key from <a href="https://huggingface.co/settings/tokens" target="_blank">Settings → Access Tokens</a></li>
-        <li>Paste it below</li>
-      </ol>
-      <input type="password" id="apiKeyInput" placeholder="Enter your Hugging Face API key">
-      <div class="remember-key">
-        <input type="checkbox" id="rememberKey">
-        <label for="rememberKey">Remember my API key on this device</label>
-      </div>
-      <button onclick="saveApiKey()">Save API Key</button>
-      <p class="privacy-note">Your API key is stored locally on your device and never sent to our servers.</p>
-    </div>
-  </div>
 
   <!-- Script must be loaded at the end of the body -->
   <script src="script.js"></script>
