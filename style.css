@@ -7,19 +7,40 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  max-width: 600px;
-  margin: 1rem auto;
-  padding: 1rem;
-  background: #f0f6f7;
-  color: #4e452a;
+  margin: 0;
+  padding: 0;
+  background: #1a2329;
+  color: #d4e1e7;
   line-height: 1.5;
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 1rem;
+}
+
+canvas#lumonMatrix {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  opacity: 0.3;
+  filter: blur(0.5px);
 }
 
 main {
-  background: #fff;
+  width: 600px;
+  position: relative;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.95);
   padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 44, 85, 0.1);
+  border-radius: 4px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
 }
 
 /* Typography */
@@ -27,13 +48,14 @@ h1 {
   text-align: center;
   font-size: 2.5rem;
   margin-bottom: 0.5rem;
-  color: #002c55;
+  color: #2c3e50; /* Dark corporate blue */
+  font-weight: 500; /* Lighter weight like Lumon's typography */
 }
 
 .subtitle {
   text-align: center;
   margin-bottom: 1.5rem;
-  color: #89aec8;
+  color: #34495e;
   font-size: 1rem;
 }
 
@@ -47,19 +69,18 @@ h1 {
 #toggleModeBtn {
   font-size: 0.85rem;
   padding: 0.4rem 1rem;
-  background-color: #89aec8;
+  background-color: #116466;
   color: #fff;
-  border: 1px solid #002c55;
+  border: 1px solid #0a3c3d;
 }
 
 #toggleModeBtn:hover {
-  background-color: #002c55;
+  background-color: #0a3c3d;
 }
 
 #toggleModeBtn.fallback-mode {
-  background-color: #7b6727;
-  color: white;
-  border-color: #4e452a;
+  background-color: #364954; /* Darker corporate blue */
+  border-color: #2c3531;
 }
 
 /* Input elements */
@@ -72,8 +93,10 @@ textarea {
   height: 120px;
   padding: 1rem;
   font-size: 1rem;
-  border: 1px solid #89aec8;
-  border-radius: 8px;
+  border: 1px solid #2c3e50;
+  background-color: #f8fafb; /* Almost white, like Lumon's screens */
+  color: #2c3e50;
+  border-radius: 4px;
   resize: vertical;
   font-family: inherit;
   margin-bottom: 1rem;
@@ -82,7 +105,9 @@ textarea {
 
 textarea:focus {
   outline: none;
-  border-color: #002c55;
+  border-color: #116466; /* Teal accent */
+  background-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(17, 100, 102, 0.1);
 }
 
 button {
@@ -90,16 +115,17 @@ button {
   margin: 0 auto;
   padding: 0.5rem 1.5rem;
   font-size: 1rem;
-  background-color: #002c55;
-  color: #fff;
+  background-color: #116466; /* Lumon teal */
+  color: #ffffff;
   border: none;
-  border-radius: 8px;
+  border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.2s, transform 0.1s;
+  font-weight: 500;
 }
 
 button:hover {
-  background-color: #0b0e29;
+  background-color: #1a8a8c;
 }
 
 button:active {
@@ -112,14 +138,15 @@ button:active {
   flex-direction: column;
   align-items: center;
   margin: 1.5rem 0;
+  color: #89aec8;
 }
 
 .spinner {
   width: 40px;
   height: 40px;
-  border: 4px solid rgba(0, 44, 85, 0.1);
+  border: 4px solid rgba(137, 174, 200, 0.2);
   border-radius: 50%;
-  border-left-color: #002c55;
+  border-left-color: #89aec8;
   animation: spin 1s linear infinite;
   margin-bottom: 0.5rem;
 }
@@ -131,11 +158,12 @@ button:active {
 
 /* Output box */
 #outputBox {
-  background: #f0f6f7;
+  background: #f8fafb; /* Clinical white with slight blue tint */
   padding: 1.5rem;
   margin-top: 1.5rem;
-  border: 1px solid #89aec8;
-  border-radius: 8px;
+  border: 1px solid #2c3e50;
+  border-radius: 4px;
+  color: #2c3e50;
 }
 
 #outputText {
@@ -152,14 +180,14 @@ button:active {
   display: block;
   text-align: center;
   margin-top: 2rem;
-  color: #7b6727;
+  color: #89aec8;
   text-decoration: none;
   font-size: 0.9rem;
 }
 
 .coffee-link:hover {
   text-decoration: underline;
-  color: #002c55;
+  color: #a7c6dc;
 }
 
 /* Modal */
@@ -170,19 +198,20 @@ button:active {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(11, 14, 41, 0.8);
+  background-color: rgba(44, 53, 49, 0.9);
   z-index: 100;
   justify-content: center;
   align-items: center;
 }
 
 .modal-content {
-  background-color: #f0f6f7;
+  background-color: #ffffff;
   padding: 2rem;
   border-radius: 12px;
   width: 90%;
   max-width: 500px;
-  box-shadow: 0 5px 15px rgba(0, 44, 85, 0.2);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+  border: 1px solid #2c3e50;
 }
 
 .modal-content h2 {
@@ -204,7 +233,7 @@ button:active {
 }
 
 .modal-content a {
-  color: #002c55;
+  color: #116466;
   text-decoration: none;
 }
 
@@ -235,6 +264,46 @@ button:active {
   font-size: 0.8rem;
   color: #4e452a;
   margin-top: 1rem;
+}
+
+/* CRT monitor frame effect */
+.crt-frame {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: 24px solid #0a1114;
+  border-radius: 8px;
+  box-shadow: 
+    inset 0 0 30px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Subtle screen flicker */
+@keyframes screenFlicker {
+  0% { opacity: 1; }
+  50% { opacity: 0.98; }
+  100% { opacity: 1; }
+}
+
+.crt-frame::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    rgba(255, 255, 255, 0.03) 50%,
+    rgba(0, 0, 0, 0.03) 50%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+  animation: screenFlicker 0.15s infinite;
+  opacity: 0.1;
 }
 
 /* Responsive adjustments */
