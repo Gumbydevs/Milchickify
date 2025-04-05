@@ -250,18 +250,16 @@ function copyOutput() {
     .catch(err => console.error('Failed to copy:', err));
 }
 
-// Attach functions to the global window object so that inline HTML events can access them
+// Attach functions to the global window object
 window.milchickify = milchickify;
 window.copyOutput = copyOutput;
 window.toggleFallbackMode = toggleFallbackMode;
 
-// Optionally, also attach the click event listeners after DOM is loaded
+// Attach event listeners once the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', function() {
   const button = document.querySelector('button[onclick="milchickify()"]');
   if (button) {
-    button.addEventListener('click', function() {
-      milchickify();
-    });
+    button.addEventListener('click', milchickify);
   }
 
   const toggleBtn = document.getElementById('toggleModeBtn');
