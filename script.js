@@ -1,15 +1,18 @@
-// Configuration for Hugging Face API integration
-// Primary model - Mixtral (might hit rate limits)
-const PRIMARY_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1';
-// Backup model - GPT2 (more likely to work with free tier)
-const BACKUP_API_URL = 'https://api-inference.huggingface.co/models/gpt2';
+// API Configuration
+// OpenAI (Primary)
+const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+const OPENAI_API_KEY = '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';
+const OPENAI_MODEL = 'gpt-3.5-turbo'; // Most cost-effective option
 
-// Your API key - should be filled in with your actual key
-const API_KEY = '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';
+// Hugging Face (Backup)
+const PRIMARY_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1';
+const BACKUP_API_URL = 'https://api-inference.huggingface.co/models/gpt2';
+const HF_API_KEY = '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';
 
 // UI state variables
 let isProcessing = false;
 let useFallbackMode = false;
+let apiProvider = 'openai'; // 'openai', 'huggingface', or 'local'
 
 // Basic mode transformations
 const corporateReplacements = {
@@ -132,9 +135,46 @@ function getRandomItem(array) {
 }
 
 /**
+ * Transform text using OpenAI
+ */
+async function transformWithOpenAI(text) {
+  try {
+    const response = await fetch(OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        messages: [
+          {
+            role: 'system', 
+            content: 'You are Milchick, a disturbingly chipper and bureaucratic middle manager from Lumon Industries in the TV show Severance. Transform input text into your corporate style while preserving the core meaning. Always respond with exactly two sentences. Make it concise, unsettlingly corporate, and use bureaucratic language and Lumon-appropriate terminology. Do not include any explanations, just respond with the converted text.'
+          },
+          {role: 'user', content: text}
+        ],
+        max_tokens: 150,
+        temperature: 0.7
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`OpenAI API request failed with status ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data.choices[0].message.content.trim();
+  } catch (error) {
+    console.error("OpenAI API Error:", error);
+    return null;
+  }
+}
+
+/**
  * Transforms text using Hugging Face's API to match Milchick's style
  */
-async function transformWithAI(text) {
+async function transformWithHuggingFace(text) {
   const randomParam = Math.random().toString(36).substring(7);
   const prompt = `You are Milchick, a disturbingly chipper and bureaucratic middle manager from Lumon Industries in the TV show Severance.
 
@@ -167,7 +207,7 @@ INPUT TEXT: "${text}" ${randomParam}
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`,
+        'Authorization': `Bearer ${HF_API_KEY}`,
         'Cache-Control': 'no-cache'
       },
       body: JSON.stringify({
@@ -182,7 +222,7 @@ INPUT TEXT: "${text}" ${randomParam}
 
     // If primary fails, try backup model with simplified prompt
     if (!response.ok) {
-      console.log("Primary model failed, trying backup model...");
+      console.log("Primary HF model failed, trying backup model...");
       
       // Simplified prompt for smaller model
       const backupPrompt = `Convert this text to corporate speak: "${text}"`;
@@ -191,7 +231,7 @@ INPUT TEXT: "${text}" ${randomParam}
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_KEY}`,
+          'Authorization': `Bearer ${HF_API_KEY}`,
           'Cache-Control': 'no-cache'
         },
         body: JSON.stringify({
@@ -204,14 +244,15 @@ INPUT TEXT: "${text}" ${randomParam}
         })
       });
       
-      // If backup also fails, use improved fallback
+      // If backup also fails, return null
       if (!response.ok) {
-        console.log("Backup model also failed, using improved fallback...");
-        return improvedFallbackMilchickify(text);
+        console.log("Backup HF model also failed");
+        return null;
       }
     }
 
-    let generatedText = (await response.json())[0]?.generated_text || improvedFallbackMilchickify(text);
+    let generatedText = (await response.json())[0]?.generated_text;
+    if (!generatedText) return null;
     
     // Clean up model output to remove junk
     generatedText = generatedText
@@ -226,14 +267,46 @@ INPUT TEXT: "${text}" ${randomParam}
       line.replace(/^(Output:|Transformation:)\s*/i, '')
     ).join(' ').trim();
     
-    // If we got a very short or empty response, use the improved fallback
+    // If we got a very short response, return null
     if (generatedText.length < 20) {
-      return improvedFallbackMilchickify(text);
+      return null;
     }
     
     return generatedText;
   } catch (error) {
+    console.error("Hugging Face API Error:", error);
+    return null;
+  }
+}
+
+/**
+ * Transforms text using available APIs or falls back to local implementation
+ */
+async function transformWithAI(text) {
+  try {
+    // First try OpenAI
+    apiProvider = 'openai';
+    console.log("Trying OpenAI...");
+    let result = await transformWithOpenAI(text);
+    
+    // If OpenAI fails, try Hugging Face
+    if (!result) {
+      apiProvider = 'huggingface';
+      console.log("OpenAI failed, trying Hugging Face...");
+      result = await transformWithHuggingFace(text);
+    }
+    
+    // If both APIs fail, use improved fallback
+    if (!result) {
+      apiProvider = 'local';
+      console.log("All APIs failed, using improved fallback...");
+      result = improvedFallbackMilchickify(text);
+    }
+    
+    return result;
+  } catch (error) {
     console.error("API Error:", error);
+    apiProvider = 'local';
     return improvedFallbackMilchickify(text);
   }
 }
@@ -437,10 +510,26 @@ async function milchickify() {
       : await transformWithAI(inputText);
 
     outputText.textContent = result;
+    
+    // Optionally display which API was used (can be removed if not wanted)
+    const apiSource = document.getElementById('apiSource');
+    if (apiSource) {
+      apiSource.textContent = useFallbackMode 
+        ? 'Using local processing' 
+        : `Using ${apiProvider} AI`;
+    }
+    
     outputBox.classList.remove('hidden');
   } catch (error) {
     console.error('Error:', error);
     outputText.textContent = improvedFallbackMilchickify(inputText);
+    
+    // Update API source display on error
+    const apiSource = document.getElementById('apiSource');
+    if (apiSource) {
+      apiSource.textContent = 'Using local processing (fallback)';
+    }
+    
     outputBox.classList.remove('hidden');
   } finally {
     loadingIndicator.classList.add('hidden');
@@ -473,5 +562,21 @@ document.addEventListener('DOMContentLoaded', function() {
   if (toggleBtn) {
     toggleBtn.textContent = 'Switch to Basic Mode';
     toggleBtn.classList.add('fallback-mode');
+  }
+  
+  // Optional: Add API source indicator element if it doesn't exist
+  if (!document.getElementById('apiSource')) {
+    const outputBox = document.getElementById('outputBox');
+    if (outputBox) {
+      const sourceIndicator = document.createElement('div');
+      sourceIndicator.id = 'apiSource';
+      sourceIndicator.className = 'api-source';
+      sourceIndicator.style.fontSize = '0.7rem';
+      sourceIndicator.style.color = '#666';
+      sourceIndicator.style.textAlign = 'center';
+      sourceIndicator.style.marginTop = '0.5rem';
+      sourceIndicator.textContent = 'Using OpenAI AI';
+      outputBox.appendChild(sourceIndicator);
+    }
   }
 });
