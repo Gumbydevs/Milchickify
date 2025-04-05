@@ -7,7 +7,48 @@ const API_KEY = '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';
 
 // UI state variables
 let isProcessing = false;
-let useFallback = false; // Changed to false to default to AI mode
+let useFallbackMode = false;
+
+// Basic mode transformations
+const corporateReplacements = {
+  "good": "optimal",
+  "bad": "suboptimal",
+  "problem": "opportunity for improvement",
+  "work": "perpetuate workplace harmony",
+  "help": "facilitate",
+  "meeting": "collaborative synergy session",
+  "task": "deliverable",
+  "team": "workgroup collective",
+  "goal": "metric-driven objective",
+  "important": "mission-critical",
+  "deadline": "temporal milestone",
+  "improve": "optimize",
+  "change": "implement strategic adjustments",
+  "discuss": "engage in bilateral communication",
+  "issue": "action item",
+  "success": "favorable outcome alignment"
+};
+
+function basicMilchickify(text) {
+  let result = text.toLowerCase();
+  
+  // Replace full words only (using word boundaries)
+  for (const [key, value] of Object.entries(corporateReplacements)) {
+    const regex = new RegExp(`\\b${key}\\b`, 'gi');
+    result = result.replace(regex, value);
+  }
+  
+  // Add Lumon-style phrases at the start or end (randomly)
+  const lumenPhrases = [
+    "In service of workplace harmony, ",
+    "In alignment with our core values, ",
+    "To maintain departmental cohesion, ",
+    "For the greater good of Lumon, "
+  ];
+  
+  const randomPhrase = lumenPhrases[Math.floor(Math.random() * lumenPhrases.length)];
+  return randomPhrase + result.charAt(0).toUpperCase() + result.slice(1);
+}
 
 // Milchick-style phrases and expressions
 const milchickPrefixes = [
@@ -75,12 +116,9 @@ const milchickSuffixes = [
  * Toggles between AI and fallback mode
  */
 function toggleFallbackMode() {
-  useFallback = !useFallback;
+  useFallbackMode = !useFallbackMode;
   const toggleBtn = document.getElementById('toggleModeBtn');
-  if (toggleBtn) {
-    toggleBtn.textContent = useFallback ? 'Switch to AI Mode' : 'Switch to Basic Mode';
-    toggleBtn.classList.toggle('fallback-mode');
-  }
+  toggleBtn.textContent = useFallbackMode ? 'Switch to AI Mode' : 'Switch to Basic Mode';
 }
 
 /**
@@ -232,51 +270,48 @@ function fallbackMilchickify(text) {
  * Main function to process the input text
  */
 async function milchickify() {
-  const inputElement = document.getElementById('inputText');
-  const outputElement = document.getElementById('outputText');
+  const inputText = document.getElementById('inputText').value.trim();
+  if (!inputText) return;
+
   const outputBox = document.getElementById('outputBox');
+  const outputText = document.getElementById('outputText');
   const loadingIndicator = document.getElementById('loadingIndicator');
-  
+
+  outputBox.classList.add('hidden');
+  loadingIndicator.classList.remove('hidden');
+
   try {
-    if (!inputElement || !outputElement || !outputBox) {
-      throw new Error('Required DOM elements not found');
-    }
-    
-    const input = inputElement.value.trim();
-    if (!input) {
-      return;
-    }
-
-    if (isProcessing) {
-      return; // Prevent multiple simultaneous submissions
-    }
-
-    isProcessing = true;
-    if (loadingIndicator) {
-      loadingIndicator.style.display = 'block';
-    }
-    
-    let milchickifiedText;
-    
-    if (useFallback) {
-      milchickifiedText = fallbackMilchickify(input);
+    let result;
+    if (useFallbackMode) {
+      result = basicMilchickify(inputText);
+      outputText.textContent = result;
     } else {
-      milchickifiedText = await transformWithAI(input);
-      if (!milchickifiedText) {
-        milchickifiedText = fallbackMilchickify(input);
-      }
+      // AI Mode
+      const response = await fetch(HUGGINGFACE_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_KEY}`
+        },
+        body: JSON.stringify({
+          prompt: `Transform this text into Lumon corporate speak, maintaining the original meaning but using formal, bureaucratic language similar to Seth Milchick from Severance. Make it sound professional but slightly unsettling: "${inputText}"`,
+          max_tokens: 150,
+          temperature: 0.7
+        })
+      });
+
+      const data = await response.json();
+      result = data.choices[0].text.trim();
+      outputText.textContent = result;
     }
-    
-    outputElement.innerText = milchickifiedText;
+
     outputBox.classList.remove('hidden');
   } catch (error) {
-    console.error('Error in milchickify:', error);
-    outputElement.innerText = 'An error occurred. Please try again.';
+    console.error('Error:', error);
+    outputText.textContent = 'An error occurred. Please try again or switch to Basic Mode.';
+    outputBox.classList.remove('hidden');
   } finally {
-    if (loadingIndicator) {
-      loadingIndicator.style.display = 'none';
-    }
-    isProcessing = false;
+    loadingIndicator.classList.add('hidden');
   }
 }
 
@@ -284,46 +319,10 @@ async function milchickify() {
  * Copies the output text to clipboard
  */
 function copyOutput() {
-  const outputElement = document.getElementById('outputText');
-  
-  if (!outputElement) {
-    console.error('Output element not found');
-    return;
-  }
-  
-  const text = outputElement.innerText;
-  
-  // Use a more modern approach to clipboard API with fallback
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text)
-      .then(() => {
-        alert("Copied!");
-      })
-      .catch(err => {
-        console.error('Failed to copy text: ', err);
-        alert("Failed to copy. Please try again.");
-      });
-  } else {
-    // Fallback method
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    textArea.style.position = 'fixed';
-    textArea.style.opacity = '0';
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    
-    try {
-      const successful = document.execCommand('copy');
-      const msg = successful ? 'Copied!' : 'Failed to copy. Please try again.';
-      alert(msg);
-    } catch (err) {
-      console.error('Failed to copy text: ', err);
-      alert("Failed to copy. Please try again.");
-    }
-    
-    document.body.removeChild(textArea);
-  }
+  const outputText = document.getElementById('outputText').textContent;
+  navigator.clipboard.writeText(outputText)
+    .then(() => alert('Copied to clipboard!'))
+    .catch(err => console.error('Failed to copy:', err));
 }
 
 // Initialize when the DOM is fully loaded
