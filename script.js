@@ -1,7 +1,7 @@
-// This script is part of the "Milchickify" web app, which transforms text into a corporate management style reminiscent of Irving Milchick from the TV show "Severance".
-// The app uses the Hugging Face API for advanced text transformation, but also has a fallback mechanism for basic text manipulation.
-// Embedded API key handling is included, and the app allows users to save their API key for future use.
-const API_KEY = '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';
+// Configuration for Hugging Face API integration
+const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2';
+// Embedded API key - replace with your actual Hugging Face API key
+const API_KEY = 'YOUR_API_KEY_HERE';
 
 // UI state variables
 let isProcessing = false;
@@ -60,44 +60,6 @@ const milchickSuffixes = [
 ];
 
 /**
- * Shows the API key input modal
- */
-function showApiKeyModal() {
-  const modal = document.getElementById('apiKeyModal');
-  if (!apiKey && modal) {
-    modal.style.display = 'flex';
-  }
-}
-
-/**
- * Saves the API key and closes the modal
- */
-function saveApiKey() {
-  const keyInput = document.getElementById('apiKeyInput');
-  if (keyInput) {
-    apiKey = keyInput.value.trim();
-    
-    // Save to local storage if user wants to remember
-    const rememberCheckbox = document.getElementById('rememberKey');
-    if (rememberCheckbox && rememberCheckbox.checked) {
-      localStorage.setItem('milchickify_api_key', apiKey);
-    }
-    
-    // Close the modal
-    const modal = document.getElementById('apiKeyModal');
-    if (modal) {
-      modal.style.display = 'none';
-    }
-    
-    // Check if we were waiting for an API key
-    const pendingText = document.getElementById('inputText').value.trim();
-    if (pendingText && isProcessing) {
-      milchickify();
-    }
-  }
-}
-
-/**
  * Toggles between AI and fallback mode
  */
 function toggleFallbackMode() {
@@ -110,17 +72,9 @@ function toggleFallbackMode() {
 }
 
 /**
- * Checks if we have a stored API key on page load
- */
-function checkStoredApiKey() {
-  const storedKey = localStorage.getItem('milchickify_api_key');
-  if (storedKey) {
-    apiKey = storedKey;
-  }
-}
-
-/**
  * Returns a random item from an array
+ * @param {Array} array - The array to select from
+ * @return {*} A random element from the array
  */
 function getRandomItem(array) {
   return array[Math.floor(Math.random() * array.length)];
@@ -132,11 +86,6 @@ function getRandomItem(array) {
  * @return {Promise<string>} The Milchickified text
  */
 async function transformWithAI(text) {
-  if (!apiKey) {
-    showApiKeyModal();
-    return null; // Will be handled by the calling function
-  }
-  
   try {
     const prompt = `<s>[INST] You are Irving Milchick from the TV show Severance. Transform the following text into your distinctive corporate management style. Use flowery corporate language, excessive positivity, vague corporate jargon, and maintain a tone that is simultaneously encouraging yet subtly threatening. Make sure to reference Lumon's values and use phrases like "diligent workers" or mention wellness sessions.
 
@@ -147,7 +96,7 @@ ${text} [/INST]</s>`;
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${API_KEY}`
       },
       body: JSON.stringify({
         inputs: prompt,
@@ -274,16 +223,8 @@ async function milchickify() {
     // Try to use the AI API
     milchickifiedText = await transformWithAI(input);
     
-    // If AI failed or we need an API key, use fallback
+    // If AI failed, use fallback
     if (!milchickifiedText) {
-      if (!apiKey) {
-        // We're waiting for the API key
-        if (loadingIndicator) {
-          loadingIndicator.style.display = 'none';
-        }
-        return;
-      }
-      
       milchickifiedText = fallbackMilchickify(input);
     }
   }
@@ -344,13 +285,7 @@ function copyOutput() {
   }
 }
 
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', function() {
-  checkStoredApiKey();
-});
-
 // Make functions available globally
 window.milchickify = milchickify;
 window.copyOutput = copyOutput;
-window.saveApiKey = saveApiKey;
 window.toggleFallbackMode = toggleFallbackMode;
