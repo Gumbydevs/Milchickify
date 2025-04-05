@@ -164,8 +164,8 @@ Now transform this: "${text}"`;
     }
 
     let generatedText = (await response.json())[0]?.generated_text || fallbackMilchickify(text);
-    // Remove any leading "Output:" if present
-    generatedText = generatedText.replace(/^Output:\s*/i, '');
+    // Remove any leading "Output:" or "Transformation:" if present
+    generatedText = generatedText.replace(/^(Output:|Transformation:)\s*/i, '');
     return generatedText.trim();
   } catch (error) {
     console.error("API Error:", error);
@@ -266,7 +266,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   const toggleBtn = document.getElementById('toggleModeBtn');
   if (toggleBtn) {
-    toggleBtn.textContent = 'Switch to AI Mode';
+    toggleBtn.textContent = 'Switch to Basic Mode';
     toggleBtn.classList.add('fallback-mode');
   }
 });
