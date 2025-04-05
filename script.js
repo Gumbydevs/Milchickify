@@ -1,9 +1,9 @@
 // Configuration for Hugging Face API integration
-const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2';
+// Using a more accessible model that should work with standard API tokens
+const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/facebook/bart-large-cnn';
 
-// We'll check for the global variable, but fall back to an empty string if not found
-// You'll set this in env.js locally, but for Vercel you'll need to add it directly here
-const API_KEY = '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';
+// Your API key
+const API_KEY = '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'; // 
 
 // UI state variables
 let isProcessing = false;
@@ -75,17 +75,9 @@ function getRandomItem(array) {
  * Transforms text using Hugging Face's API to match Milchick's style
  */
 async function transformWithAI(text) {
-  // If no API key is available or it's empty, use fallback
-  if (!API_KEY) {
-    console.warn('No API key available, falling back to basic mode');
-    return null; // Will trigger fallback
-  }
-
   try {
-    const prompt = `<s>[INST] You are Irving Milchick from the TV show Severance. Transform the following text into your distinctive corporate management style. Use flowery corporate language, excessive positivity, vague corporate jargon, and maintain a tone that is simultaneously encouraging yet subtly threatening. Make sure to reference Lumon's values and use phrases like "diligent workers" or mention wellness sessions.
-
-Here's the text to transform:
-${text} [/INST]</s>`;
+    // Create a prompt that describes what we want
+    const prompt = `Transform this text into Irving Milchick style corporate speak from Severance TV show, with flowery language, corporate jargon, and references to Lumon values: "${text}"`;
 
     const response = await fetch(HUGGINGFACE_API_URL, {
       method: 'POST',
@@ -96,7 +88,7 @@ ${text} [/INST]</s>`;
       body: JSON.stringify({
         inputs: prompt,
         parameters: {
-          max_new_tokens: 250,
+          max_length: 250,
           temperature: 0.7,
           top_p: 0.9,
           do_sample: true
@@ -111,18 +103,20 @@ ${text} [/INST]</s>`;
       return null; // Will trigger fallback
     }
     
-    if (data && Array.isArray(data) && data.length > 0) {
-      // Extract just the generated text, removing any prompt parts
-      let generatedText = data[0].generated_text;
-      
-      // Remove the prompt part from the response if it's included
-      const promptEnd = generatedText.indexOf('[/INST]');
-      if (promptEnd !== -1) {
-        generatedText = generatedText.substring(promptEnd + 7).trim();
-      }
-      
-      return generatedText;
-    } else {
+    // Different models return results in different formats
+    // BART returns an array with generated text
+    if (Array.isArray(data) && data.length > 0 && data[0].generated_text) {
+      return data[0].generated_text;
+    }
+    // Some models return a direct object with generated_text
+    else if (data.generated_text) {
+      return data.generated_text;
+    }
+    // Handle other potential response formats
+    else if (typeof data === 'string') {
+      return data;
+    }
+    else {
       console.error("Unexpected API response format:", data);
       return null; // Will trigger fallback
     }
