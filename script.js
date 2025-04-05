@@ -3,7 +3,7 @@ const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/mistral
 
 // We'll check for the global variable, but fall back to an empty string if not found
 // You'll set this in env.js locally, but for Vercel you'll need to add it directly here
-const API_KEY = typeof window.HUGGINGFACE_API_KEY !== 'undefined' ? window.HUGGINGFACE_API_KEY : '';
+const API_KEY = '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';
 
 // UI state variables
 let isProcessing = false;
