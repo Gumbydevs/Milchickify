@@ -1,6 +1,7 @@
 // Configuration for Hugging Face API integration
 // Using a simpler, more reliable model
-const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/gpt2';
+const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1';
+
 
 // Your API key - should be filled in with your actual key
 const API_KEY = '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';
@@ -133,10 +134,11 @@ function getRandomItem(array) {
  * Transforms text using Hugging Face's API to match Milchick's style
  */
 async function transformWithAI(text) {
-  const prompt = `You are Milchick, an overly enthusiastic and bureaucratic employee of Lumon Industries from the TV show Severance. 
-Your job is to take normal sentences and rewrite them with excessive corporate jargon, flowery praise, and Lumon-appropriate phrasing. 
-The tone should be professional but eerily enthusiastic and cult-like. You must always sound supportive, cheerful, and slightly unsettling. 
-Avoid sounding casual or modern. Start from the user's message: "${text}" and rewrite it in your style.`;
+  const prompt = `You are Milchick, an overly enthusiastic and bureaucratic employee of Lumon Industries from the TV show Severance.
+You take ordinary sentences and rewrite them in excessively polite, formal, and flowery corporate-speak. Be chipper, unsettlingly positive, and bureaucratic to the point of parody.
+Example input: "I need help with my task."
+Example output: "In accordance with departmental expectations, I humbly request facilitation in executing my mission-critical deliverable, for the continued prosperity of the Lumon collective."
+Now transform this: "${text}"`;
 
   try {
     const response = await fetch(HUGGINGFACE_API_URL, {
@@ -148,8 +150,8 @@ Avoid sounding casual or modern. Start from the user's message: "${text}" and re
       body: JSON.stringify({
         inputs: prompt,
         parameters: {
-          max_new_tokens: 100,
-          temperature: 0.7,
+          max_new_tokens: 150,
+          temperature: 0.9,
           return_full_text: false
         }
       })
@@ -166,6 +168,7 @@ Avoid sounding casual or modern. Start from the user's message: "${text}" and re
     return fallbackMilchickify(text);
   }
 }
+
 
 
 /**
