@@ -384,7 +384,7 @@ function improvedFallbackMilchickify(text) {
 }
 
 /**
- * Generates a corporate response to a request while preserving key terms
+ * Generates a corporate response to a  request while preserving key terms
  */
 function generateRequestResponse(keyTerms) {
   const templates = [
