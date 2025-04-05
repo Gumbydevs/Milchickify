@@ -7,7 +7,7 @@ const API_KEY = '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';
 
 // UI state variables
 let isProcessing = false;
-let useFallback = true; // Default to fallback mode for more reliable experience
+let useFallback = false; // Changed to false to default to AI mode
 
 // Milchick-style phrases and expressions
 const milchickPrefixes = [
