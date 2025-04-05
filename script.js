@@ -1,4 +1,21 @@
-// Milchick-style phrases and expressions
+// Configuration for Hugging Face API integration
+const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2';
+let apiKey = ''; // Will be set by user
+
+// UI state variables
+let isProcessing = false;
+let useFallback = false;
+
+// Sample phrases that define Milchick's style (used as backup and examples)
+const milchickPhrases = [
+  "I want to express my gratitude for your outstanding work",
+  "It brings me immense pleasure to acknowledge your contributions",
+  "I must commend you on your exemplary performance metrics",
+  "Your diligent efforts deserve recognition at our next wellness session",
+  "Allow me to extend my appreciation for your synergy with our core values"
+];
+
+// Milchick-style phrases and expressions for fallback
 const milchickPrefixes = [
   "I want to express my gratitude for",
   "I'm delighted to inform you about",
@@ -42,20 +59,140 @@ const milchickSuffixes = [
 ];
 
 /**
+ * Shows the API key input modal
+ */
+function showApiKeyModal() {
+  const modal = document.getElementById('apiKeyModal');
+  if (!apiKey && modal) {
+    modal.style.display = 'flex';
+  }
+}
+
+/**
+ * Saves the API key and closes the modal
+ */
+function saveApiKey() {
+  const keyInput = document.getElementById('apiKeyInput');
+  if (keyInput) {
+    apiKey = keyInput.value.trim();
+    
+    // Save to local storage if user wants to remember
+    const rememberCheckbox = document.getElementById('rememberKey');
+    if (rememberCheckbox && rememberCheckbox.checked) {
+      localStorage.setItem('milchickify_api_key', apiKey);
+    }
+    
+    // Close the modal
+    const modal = document.getElementById('apiKeyModal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+    
+    // Check if we were waiting for an API key
+    const pendingText = document.getElementById('inputText').value.trim();
+    if (pendingText && isProcessing) {
+      milchickify();
+    }
+  }
+}
+
+/**
+ * Toggles between AI and fallback mode
+ */
+function toggleFallbackMode() {
+  useFallback = !useFallback;
+  const toggleBtn = document.getElementById('toggleModeBtn');
+  if (toggleBtn) {
+    toggleBtn.textContent = useFallback ? 'Switch to AI Mode' : 'Switch to Basic Mode';
+    toggleBtn.classList.toggle('fallback-mode');
+  }
+}
+
+/**
+ * Checks if we have a stored API key on page load
+ */
+function checkStoredApiKey() {
+  const storedKey = localStorage.getItem('milchickify_api_key');
+  if (storedKey) {
+    apiKey = storedKey;
+  }
+}
+
+/**
  * Returns a random item from an array
- * @param {Array} array - The array to select from
- * @return {*} A random element from the array
  */
 function getRandomItem(array) {
   return array[Math.floor(Math.random() * array.length)];
 }
 
 /**
- * Transforms regular text into Milchick-style corporate speak
+ * Transforms text using Hugging Face's API to match Milchick's style
+ * @param {string} text - The input text to transform
+ * @return {Promise<string>} The Milchickified text
+ */
+async function transformWithAI(text) {
+  if (!apiKey) {
+    showApiKeyModal();
+    return null; // Will be handled by the calling function
+  }
+  
+  try {
+    const prompt = `<s>[INST] You are Irving Milchick from the TV show Severance. Transform the following text into your distinctive corporate management style. Use flowery corporate language, excessive positivity, vague corporate jargon, and maintain a tone that is simultaneously encouraging yet subtly threatening. Make sure to reference Lumon's values and use phrases like "diligent workers" or mention wellness sessions.
+
+Here's the text to transform:
+${text} [/INST]</s>`;
+
+    const response = await fetch(HUGGINGFACE_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: {
+          max_new_tokens: 250,
+          temperature: 0.7,
+          top_p: 0.9,
+          do_sample: true
+        }
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.error) {
+      console.error("API Error:", data.error);
+      return null; // Will trigger fallback
+    }
+    
+    if (data && Array.isArray(data) && data.length > 0) {
+      // Extract just the generated text, removing any prompt parts
+      let generatedText = data[0].generated_text;
+      
+      // Remove the prompt part from the response if it's included
+      const promptEnd = generatedText.indexOf('[/INST]');
+      if (promptEnd !== -1) {
+        generatedText = generatedText.substring(promptEnd + 7).trim();
+      }
+      
+      return generatedText;
+    } else {
+      console.error("Unexpected API response format:", data);
+      return null; // Will trigger fallback
+    }
+  } catch (error) {
+    console.error("Error calling Hugging Face API:", error);
+    return null; // Will trigger fallback
+  }
+}
+
+/**
+ * Fallback function that uses basic rules to transform text
  * @param {string} text - The input text to transform
  * @return {string} The Milchickified text
  */
-function milchickifyText(text) {
+function fallbackMilchickify(text) {
   // Handle empty input
   if (!text || typeof text !== 'string') {
     return '';
@@ -103,12 +240,13 @@ function milchickifyText(text) {
 }
 
 /**
- * Processes the input text and displays the Milchickified output
+ * Main function to process the input text
  */
-function milchickify() {
+async function milchickify() {
   const inputElement = document.getElementById('inputText');
   const outputElement = document.getElementById('outputText');
   const outputBox = document.getElementById('outputBox');
+  const loadingIndicator = document.getElementById('loadingIndicator');
   
   if (!inputElement || !outputElement || !outputBox) {
     console.error('Required DOM elements not found');
@@ -120,11 +258,43 @@ function milchickify() {
     return;
   }
 
-  // Process the text directly in the browser
-  const milchickifiedText = milchickifyText(input);
+  // Show loading indicator
+  if (loadingIndicator) {
+    loadingIndicator.style.display = 'block';
+  }
+  
+  isProcessing = true;
+  let milchickifiedText;
+  
+  if (useFallback) {
+    // Use the basic algorithm if in fallback mode
+    milchickifiedText = fallbackMilchickify(input);
+  } else {
+    // Try to use the AI API
+    milchickifiedText = await transformWithAI(input);
+    
+    // If AI failed or we need an API key, use fallback
+    if (!milchickifiedText) {
+      if (!apiKey) {
+        // We're waiting for the API key
+        if (loadingIndicator) {
+          loadingIndicator.style.display = 'none';
+        }
+        return;
+      }
+      
+      milchickifiedText = fallbackMilchickify(input);
+    }
+  }
+  
+  // Hide loading indicator
+  if (loadingIndicator) {
+    loadingIndicator.style.display = 'none';
+  }
   
   outputElement.innerText = milchickifiedText;
   outputBox.classList.remove('hidden');
+  isProcessing = false;
 }
 
 /**
@@ -173,6 +343,13 @@ function copyOutput() {
   }
 }
 
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+  checkStoredApiKey();
+});
+
 // Make functions available globally
 window.milchickify = milchickify;
 window.copyOutput = copyOutput;
+window.saveApiKey = saveApiKey;
+window.toggleFallbackMode = toggleFallbackMode;
