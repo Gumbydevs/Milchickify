@@ -1,7 +1,7 @@
 // Configuration for Hugging Face API integration
 const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2';
 // Embedded API key - replace with your actual Hugging Face API key
-const API_KEY = 'YOUR_API_KEY_HERE';
+const API_KEY = 'hf_KNBVnQeTwBzIwHxmFIHXXlbSxnDnThrUYnEY_HERE';
 
 // UI state variables
 let isProcessing = false;
