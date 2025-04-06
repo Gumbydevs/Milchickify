@@ -6,8 +6,8 @@
     { "src": "*.css", "use": "@vercel/static" },
     { "src": "*.json", "use": "@vercel/static" }
   ],
-  "routes": [
-    { "src": "/env.js", "dest": "/env.template.js" }
+  "rewrites": [
+    { "source": "/env.js", "destination": "/env.template.js" }
   ],
   "headers": [
     {
