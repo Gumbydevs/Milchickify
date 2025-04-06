@@ -15,5 +15,11 @@
         { "key": "Access-Control-Allow-Headers", "value": "X-Requested-With, Content-Type, Authorization" }
       ]
     }
-  ]
+  ],
+  "build": {
+    "env": {
+      "NEXT_PUBLIC_OpenAI": "@openai-key",
+      "NEXT_PUBLIC_HuggingFace": "@huggingface-key"
+    }
+  }
 }
