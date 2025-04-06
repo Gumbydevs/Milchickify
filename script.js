@@ -1,4 +1,384 @@
-// Update the determineInputType function to be more specific
+// Global state for the app
+let fallbackMode = false;
+
+// Main milchickify function that gets called when the button is clicked
+function milchickify() {
+  const inputText = document.getElementById('inputText').value;
+  const outputBox = document.getElementById('outputBox');
+  const outputText = document.getElementById('outputText');
+  const loadingIndicator = document.getElementById('loadingIndicator');
+  
+  // Check if there's any input
+  if (!inputText.trim()) {
+    alert('Please enter some text to milchickify!');
+    return;
+  }
+  
+  // Show loading indicator
+  loadingIndicator.classList.remove('hidden');
+  outputBox.classList.add('hidden');
+  
+  if (fallbackMode) {
+    // Use the enhanced fallback mode (local processing)
+    setTimeout(() => {
+      const result = enhancedFallbackMilchickify(inputText);
+      outputText.textContent = result;
+      loadingIndicator.classList.add('hidden');
+      outputBox.classList.remove('hidden');
+    }, 500); // Short delay for UX
+  } else {
+    // Try to use API (if available and configured)
+    try {
+      // Check if API key exists
+      const apiKey = window.ENV && window.ENV.API_KEY;
+      
+      if (!apiKey) {
+        // No API key, fall back to local processing
+        console.log("No API key found, using fallback mode");
+        fallbackMode = true;
+        document.getElementById('toggleModeBtn').textContent = 'Switch to API Mode';
+        const result = enhancedFallbackMilchickify(inputText);
+        outputText.textContent = result;
+        loadingIndicator.classList.add('hidden');
+        outputBox.classList.remove('hidden');
+        return;
+      }
+      
+      // Make API call (placeholder - you would need to implement actual API call)
+      fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo",
+          messages: [
+            {
+              role: "system",
+              content: "You are Milchick from the TV show Severance. Respond to the user's text in your formal, verbose, corporate-speak style. Use terminology like 'procedural', 'departmental', 'optimization', etc. Make the response sound like it's from Lumon Industries."
+            },
+            {
+              role: "user",
+              content: inputText
+            }
+          ],
+          max_tokens: 150
+        })
+      })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('API request failed');
+        }
+        return response.json();
+      })
+      .then(data => {
+        const result = data.choices[0].message.content.trim();
+        outputText.textContent = result;
+        loadingIndicator.classList.add('hidden');
+        outputBox.classList.remove('hidden');
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        // Fall back to local processing on error
+        const result = enhancedFallbackMilchickify(inputText);
+        outputText.textContent = result;
+        loadingIndicator.classList.add('hidden');
+        outputBox.classList.remove('hidden');
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      // Fall back to local processing if anything goes wrong
+      const result = enhancedFallbackMilchickify(inputText);
+      outputText.textContent = result;
+      loadingIndicator.classList.add('hidden');
+      outputBox.classList.remove('hidden');
+    }
+  }
+}
+
+// Function to toggle between API and fallback modes
+function toggleFallbackMode() {
+  fallbackMode = !fallbackMode;
+  const toggleBtn = document.getElementById('toggleModeBtn');
+  
+  if (fallbackMode) {
+    toggleBtn.textContent = 'Switch to API Mode';
+  } else {
+    toggleBtn.textContent = 'Switch to Basic Mode';
+  }
+}
+
+// Copy the generated text to clipboard
+function copyOutput() {
+  const outputText = document.getElementById('outputText').textContent;
+  
+  // Use the clipboard API if available
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(outputText)
+      .then(() => {
+        alert('Text copied to clipboard!');
+      })
+      .catch(err => {
+        console.error('Failed to copy text: ', err);
+        fallbackCopyToClipboard(outputText);
+      });
+  } else {
+    fallbackCopyToClipboard(outputText);
+  }
+}
+
+// Fallback method for copying text when Clipboard API is not available
+function fallbackCopyToClipboard(text) {
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  textArea.style.position = 'fixed';
+  textArea.style.left = '-999999px';
+  textArea.style.top = '-999999px';
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  
+  try {
+    const successful = document.execCommand('copy');
+    if (successful) {
+      alert('Text copied to clipboard!');
+    } else {
+      alert('Failed to copy text to clipboard!');
+    }
+  } catch (err) {
+    console.error('Fallback: Oops, unable to copy', err);
+    alert('Failed to copy text to clipboard!');
+  }
+  
+  document.body.removeChild(textArea);
+}
+
+// Helper function to get a random item from an array
+function getRandomItem(array) {
+  if (!array || array.length === 0) {
+    return '';
+  }
+  return array[Math.floor(Math.random() * array.length)];
+}
+
+// Main function to convert text to Milchick corporate speak
+function enhancedFallbackMilchickify(text) {
+  // Make sure we have access to the dictionary
+  if (!window.milchickDictionary) {
+    console.error("Milchick dictionary not loaded!");
+    return "I regret to inform you that the departmental response generator is currently experiencing a temporary operational disruption. Please contact technical support for immediate assistance.";
+  }
+
+  if (!text || typeof text !== 'string') {
+    return '';
+  }
+
+  // Clean and normalize the input
+  let cleanText = text.trim();
+  
+  // First check for exact preset responses
+  const presetResponse = checkForPresetResponse(cleanText);
+  if (presetResponse) {
+    return presetResponse;
+  }
+  
+  // Check if the text matches any pattern in our dictionary
+  const dictionaryResponse = findDictionaryMatch(cleanText);
+  if (dictionaryResponse) {
+    return dictionaryResponse;
+  }
+
+  // Add a period if there isn't one
+  if (!cleanText.endsWith('.') && !cleanText.endsWith('?') && !cleanText.endsWith('!')) {
+    cleanText += '.';
+  }
+
+  // Break the input into sentences
+  const sentences = cleanText.split(/(?<=[.!?])\s+/);
+  
+  // Generate Milchick-style sentences
+  const generatedSentences = [];
+  
+  // Process up to 2 sentences from the input
+  for (let i = 0; i < Math.min(2, sentences.length); i++) {
+    const sentence = sentences[i].trim();
+    if (!sentence) continue;
+    
+    // Determine the type of sentence
+    const type = determineInputType(sentence);
+    
+    // Get keywords based on the type
+    const keyTerms = getImprovedKeywords(sentence, type);
+    
+    // Generate appropriate response based on sentence type
+    generatedSentences.push(generateSentenceByType(type, keyTerms));
+  }
+  
+  // If we don't have 2 sentences yet, add generic corporate sentences
+  while (generatedSentences.length < 2) {
+    // Use a generic response from the dictionary's greeting templates
+    const genericTemplates = window.milchickDictionary.responseTemplates.greeting || [];
+    generatedSentences.push(getRandomItem(genericTemplates));
+  }
+  
+  // Return exactly 2 sentences
+  return generatedSentences.slice(0, 2).join(' ');
+}
+
+// Extract key terms from input text
+function extractKeyTerms(text) {
+  if (!text) return [];
+  
+  // Get themes from the dictionary
+  const themes = window.milchickDictionary.themes || {};
+  const allThemeKeywords = [];
+  
+  // Collect all theme keywords
+  for (const themeWords of Object.values(themes)) {
+    allThemeKeywords.push(...themeWords);
+  }
+  
+  // Extract the keywords from the text
+  const words = text.toLowerCase().match(/\b\w+\b/g) || [];
+  const keyTerms = words.filter(word => 
+    allThemeKeywords.includes(word) && 
+    word.length > 3
+  );
+  
+  // If no specific keywords found, extract nouns or important words
+  if (keyTerms.length === 0) {
+    const stopWords = ['and', 'the', 'this', 'that', 'for', 'with', 'from', 'have', 'been'];
+    const potentialNouns = words.filter(word => 
+      word.length > 3 && 
+      !stopWords.includes(word)
+    );
+    
+    // Take up to 2 potential important words
+    return potentialNouns.slice(0, 2);
+  }
+  
+  // Take up to 2 keywords
+  return keyTerms.slice(0, 2);
+}
+
+// Function to make ordinary terms more corporate
+function corporatize(term) {
+  // Check if this is already a corporate term
+  if (term.includes('_')) {
+    // Replace underscores with spaces and add a corporate modifier
+    return term.replace(/_/g, ' ');
+  }
+  
+  // Dictionary of corporate-speak translations
+  const corporateTerms = {
+    'happy': 'positive workplace sentiment',
+    'sad': 'negative emotional state',
+    'project': 'strategic initiative',
+    'work': 'procedural engagement',
+    'job': 'professional assignment',
+    'help': 'operational assistance',
+    'problem': 'situational anomaly',
+    'issue': 'procedural impediment',
+    'team': 'interdepartmental unit',
+    'meeting': 'collaborative synchronization',
+    'email': 'digital communication',
+    'talk': 'verbal exchange protocol',
+    'idea': 'conceptual innovation',
+    'good': 'performance-exceeding metrics',
+    'bad': 'suboptimal outcome scenario',
+    'report': 'data documentation artifact',
+    'deadline': 'temporal completion parameter',
+    'customer': 'external stakeholder entity',
+    'manager': 'hierarchical oversight facilitator',
+    'feedback': 'performance evaluation data',
+    'salary': 'compensation allocation',
+    'office': 'workspace environment',
+    'training': 'skill acquisition protocol',
+    'decision': 'strategic determination',
+    'employee': 'human resource asset',
+    'policy': 'behavioral guideline framework',
+    'time': 'temporal resource allocation',
+    'goal': 'targeted outcome objective',
+    'chat': 'informal communication exchange',
+    'call': 'verbal transmission session'
+  };
+  
+  // Return the corporate version or make it more corporate if not in dictionary
+  if (corporateTerms[term]) {
+    return corporateTerms[term];
+  } else if (term.length > 3) {
+    // For unknown terms, add corporate modifiers
+    const corporateModifiers = [
+      'operational', 'strategic', 'procedural', 'departmental', 
+      'organizational', 'enterprise', 'synergistic', 'systematic',
+      'integrated', 'optimized', 'productivity', 'workflow', 
+      'management', 'performance'
+    ];
+    
+    // Add a corporate modifier
+    const modifier = getRandomItem(corporateModifiers);
+    return `${modifier} ${term}`;
+  }
+  
+  return term;
+}
+
+// Check for preset responses from our dictionary
+function checkForPresetResponse(text) {
+  if (!window.milchickDictionary) {
+    return null;
+  }
+  
+  // Check Severance-specific terms
+  const lowerText = text.toLowerCase().trim();
+  
+  // Check for Severance-specific terms first
+  for (const [term, response] of Object.entries(window.milchickDictionary.severanceSpecific || {})) {
+    if (lowerText.includes(term)) {
+      return response;
+    }
+  }
+  
+  // Then check exact matches
+  if (window.milchickDictionary.exactMatches && window.milchickDictionary.exactMatches[lowerText]) {
+    return window.milchickDictionary.exactMatches[lowerText];
+  }
+  
+  return null;
+}
+
+// Function to find matches in our expanded dictionary
+function findDictionaryMatch(text) {
+  if (!window.milchickDictionary || !window.milchickDictionary.patterns) {
+    return null;
+  }
+  
+  const lowerText = text.toLowerCase().trim();
+  
+  // Check for exact matches first
+  if (window.milchickDictionary.exactMatches[lowerText]) {
+    return window.milchickDictionary.exactMatches[lowerText];
+  }
+  
+  // Then check for pattern matches
+  for (const [pattern, responses] of Object.entries(window.milchickDictionary.patterns)) {
+    if (new RegExp(pattern, 'i').test(lowerText)) {
+      return getRandomItem(responses);
+    }
+  }
+  
+  // Check for common themes
+  for (const [theme, keywords] of Object.entries(window.milchickDictionary.themes)) {
+    if (keywords.some(keyword => lowerText.includes(keyword))) {
+      return getRandomItem(window.milchickDictionary.themeResponses[theme] || []);
+    }
+  }
+  
+  return null;
+}
+
+// Determine the type of input sentence
 function determineInputType(text) {
   const lowerText = text.toLowerCase();
   
@@ -32,7 +412,7 @@ function determineInputType(text) {
     return 'suggestion';
   }
 
-  // Standard checks from the original code
+  // Standard checks
   if (text.includes('?')) {
     return 'question';
   } else if (lowerText.includes('thank') || lowerText.includes('appreciate') || lowerText.includes('grateful')) {
@@ -53,72 +433,66 @@ function determineInputType(text) {
   }
 }
 
-// Add this function to improve keyword extraction based on input type
+// Get keywords based on input type
 function getImprovedKeywords(text, type) {
   let lowerText = text.toLowerCase();
   let keywords = [];
   
-  // Extract keywords specific to the input type
-  switch(type) {
-    case 'positive_sentiment':
-      if (lowerText.match(/happy|glad|enjoy|like|love/)) {
-        keywords.push('employee_satisfaction');
-      }
-      if (lowerText.match(/work|job|role|position/)) {
-        keywords.push('work_environment');
-      }
-      if (lowerText.match(/team|colleague|coworker|department/)) {
-        keywords.push('team_dynamics');
-      }
-      if (lowerText.match(/project|task|assignment/)) {
-        keywords.push('productivity');
-      }
-      break;
-      
-    case 'negative_sentiment':
-      if (lowerText.match(/unhappy|sad|dislike|hate/)) {
-        keywords.push('employee_concern');
-      }
-      if (lowerText.match(/work|job|role|position/)) {
-        keywords.push('work_environment');
-      }
-      if (lowerText.match(/team|colleague|coworker|department/)) {
-        keywords.push('team_dynamics');
-      }
-      if (lowerText.match(/project|task|assignment/)) {
-        keywords.push('productivity');
-      }
-      break;
-      
-    case 'work_related':
-      if (lowerText.match(/project|assignment|task/)) {
-        keywords.push('deliverable');
-      }
-      if (lowerText.match(/deadline|time|schedule/)) {
-        keywords.push('timeline');
-      }
-      if (lowerText.match(/team|collaborate|help/)) {
-        keywords.push('teamwork');
-      }
-      if (lowerText.match(/finish|complete|done/)) {
-        keywords.push('completion');
-      }
-      break;
+  // Check if we have themes in the dictionary
+  if (window.milchickDictionary && window.milchickDictionary.themes) {
+    const themes = window.milchickDictionary.themes;
     
-    case 'suggestion':
-      if (lowerText.match(/suggest|idea|think/)) {
-        keywords.push('innovation');
+    // Find matching themes based on keywords
+    for (const [theme, themeWords] of Object.entries(themes)) {
+      if (themeWords.some(word => lowerText.includes(word))) {
+        keywords.push(theme);
+        break; // Just use one theme
       }
-      if (lowerText.match(/improve|better|enhance/)) {
-        keywords.push('optimization');
-      }
-      if (lowerText.match(/process|procedure|system/)) {
-        keywords.push('workflow');
-      }
-      break;
+    }
   }
   
-  // If we didn't find specialized keywords, use the generic extraction
+  // If we didn't find themed keywords, extract based on type
+  if (keywords.length === 0) {
+    switch(type) {
+      case 'positive_sentiment':
+        if (lowerText.match(/happy|glad|enjoy|like|love/)) {
+          keywords.push('employee_satisfaction');
+        }
+        if (lowerText.match(/work|job|role|position/)) {
+          keywords.push('work_environment');
+        }
+        break;
+        
+      case 'negative_sentiment':
+        if (lowerText.match(/unhappy|sad|dislike|hate/)) {
+          keywords.push('employee_concern');
+        }
+        if (lowerText.match(/work|job|role|position/)) {
+          keywords.push('work_environment');
+        }
+        break;
+        
+      case 'work_related':
+        if (lowerText.match(/project|assignment|task/)) {
+          keywords.push('deliverable');
+        }
+        if (lowerText.match(/deadline|time|schedule/)) {
+          keywords.push('timeline');
+        }
+        break;
+      
+      case 'suggestion':
+        if (lowerText.match(/suggest|idea|think/)) {
+          keywords.push('innovation');
+        }
+        if (lowerText.match(/improve|better|enhance/)) {
+          keywords.push('optimization');
+        }
+        break;
+    }
+  }
+  
+  // If we still don't have keywords, use generic extraction
   if (keywords.length === 0) {
     return extractKeyTerms(text);
   }
@@ -134,63 +508,7 @@ function getImprovedKeywords(text, type) {
   return keywords;
 }
 
-// Update the enhancedFallbackMilchickify function to use our improved keywords
-function enhancedFallbackMilchickify(text) {
-  if (!text || typeof text !== 'string') {
-    return '';
-  }
-
-  // Clean and normalize the input
-  let cleanText = text.trim();
-  
-  // First check for exact preset responses
-  const presetResponse = checkForPresetResponse(cleanText);
-  if (presetResponse) {
-    return presetResponse;
-  }
-  
-  // Check if the text matches any template in our dictionary
-  const dictionaryResponse = findDictionaryMatch(cleanText);
-  if (dictionaryResponse) {
-    return dictionaryResponse;
-  }
-
-  // Add a period if there isn't one
-  if (!cleanText.endsWith('.') && !cleanText.endsWith('?') && !cleanText.endsWith('!')) {
-    cleanText += '.';
-  }
-
-  // Break the input into sentences
-  const sentences = cleanText.split(/(?<=[.!?])\s+/);
-  
-  // Generate two Milchick-style sentences
-  const generatedSentences = [];
-  
-  // Process up to 2 sentences from the input
-  for (let i = 0; i < Math.min(2, sentences.length); i++) {
-    const sentence = sentences[i].trim();
-    if (!sentence) continue;
-    
-    // Determine the type of sentence
-    const type = determineInputType(sentence);
-    
-    // Get improved keywords based on the type
-    const keyTerms = getImprovedKeywords(sentence, type);
-    
-    // Generate appropriate response based on sentence type
-    generatedSentences.push(generateSentenceByType(type, keyTerms));
-  }
-  
-  // If we don't have 2 sentences yet, add generic corporate sentences
-  while (generatedSentences.length < 2) {
-    generatedSentences.push(generateGenericMilchickSentence());
-  }
-  
-  // Return exactly 2 sentences
-  return generatedSentences.slice(0, 2).join(' ');
-}
-
-// Update generateSentenceByType to include the new sentence types
+// Generate a sentence based on input type and keywords
 function generateSentenceByType(type, keyTerms) {
   // Make terms more corporate
   const corporateTerms = keyTerms.map(corporatize);
@@ -198,134 +516,13 @@ function generateSentenceByType(type, keyTerms) {
   // Choose a random term for focus
   const focusTerm = corporateTerms.length > 0 ? getRandomItem(corporateTerms) : 'procedural matter';
   
-  // Access our expanded response templates if they're available
+  // Access our templates from the dictionary
   if (window.milchickDictionary && window.milchickDictionary.responseTemplates && 
       window.milchickDictionary.responseTemplates[type]) {
-    return getRandomItem(window.milchickDictionary.responseTemplates[type])
-      .replace('${focusTerm}', focusTerm);
+    const template = getRandomItem(window.milchickDictionary.responseTemplates[type]);
+    return template.replace('${focusTerm}', focusTerm);
   }
   
-  // Fall back to original templates if dictionary not loaded
-  switch(type) {
-    case 'positive_sentiment':
-      return getRandomItem([
-        `I'm delighted to document your positive sentiment regarding ${focusTerm} which will reflect favorably in your quarterly evaluation metrics.`,
-        `Your expression of workplace satisfaction concerning ${focusTerm} has been noted and contributes significantly to our departmental harmony index.`,
-        `We at Lumon value your optimistic engagement with ${focusTerm} as it exemplifies the kind of attitude that facilitates peak productivity outcomes.`,
-        `Your contentment with ${focusTerm} aligns perfectly with our core values of workplace fulfillment and organizational cohesion.`,
-        `The positive outlook you've demonstrated toward ${focusTerm} will be recognized during your upcoming wellness assessment.`
-      ]);
-      
-    case 'negative_sentiment':
-      return getRandomItem([
-        `I've documented your concerns regarding ${focusTerm} and have initiated appropriate procedural remediation protocols.`,
-        `Your feedback about ${focusTerm} has been processed through our sentiment analysis framework for appropriate action.`,
-        `We take all employee experiential data points concerning ${focusTerm} very seriously and will implement necessary adjustments.`,
-        `Your expressed dissatisfaction with ${focusTerm} has been escalated to the appropriate departmental oversight committee.`,
-        `I appreciate your candor regarding ${focusTerm} as it enables our continuous improvement mechanisms to function optimally.`
-      ]);
-      
-    case 'work_related':
-      return getRandomItem([
-        `Your ${focusTerm} status has been updated in our enterprise project management system with appropriate priority designation.`,
-        `I'm pleased to confirm that all ${focusTerm} parameters have been configured according to departmental standards and expectations.`,
-        `The ${focusTerm} metrics have been logged in our performance tracking database for ongoing monitoring and evaluation.`,
-        `We've allocated additional resources to ensure optimal ${focusTerm} outcomes in alignment with strategic objectives.`,
-        `Your engagement with ${focusTerm} demonstrates the kind of procedural adherence that Lumon values in its workforce.`
-      ]);
-      
-    case 'suggestion':
-      return getRandomItem([
-        `Your ${focusTerm} proposal has been documented in our continuous improvement database for evaluation by the appropriate committee.`,
-        `I appreciate your contribution to our ${focusTerm} optimization initiative which demonstrates commendable organizational awareness.`,
-        `Your suggestion regarding ${focusTerm} will be assessed according to our standard innovation protocol framework.`,
-        `We value your input concerning ${focusTerm} as it contributes to our collective goal of operational excellence.`,
-        `The ${focusTerm} enhancement you've proposed will be reviewed during our next procedural refinement session.`
-      ]);
-      
-    case 'question':
-      return getRandomItem([
-        `I'm pleased to provide clarification regarding ${focusTerm} in accordance with departmental communication protocols.`,
-        `Your inquiry about ${focusTerm} has been processed through our knowledge transfer system with optimal efficacy.`,
-        `The ${focusTerm} information you seek is accessible within parameters established by section 4.3 of the handbook.`,
-        `I'm authorized to convey that ${focusTerm} falls within the scope of approved operational guidelines as determined by management.`,
-        `Our department maintains comprehensive documentation on ${focusTerm} which I'm delighted to verbally summarize for your benefit.`
-      ]);
-      
-    case 'request':
-      return getRandomItem([
-        `Your request concerning ${focusTerm} has been logged in our procedural management system with appropriate priority designation.`,
-        `I've initiated the formal protocol to process your ${focusTerm} requirements through the proper administrative channels.`,
-        `Your ${focusTerm} request has been acknowledged and will be allocated appropriate resources in accordance with departmental guidelines.`,
-        `The system has registered your ${focusTerm} request which will be addressed according to established workflow optimization procedures.`,
-        `I'm pleased to facilitate your ${focusTerm} requirement in accordance with our commitment to interdepartmental harmony.`
-      ]);
-      
-    case 'complaint':
-      return getRandomItem([
-        `I acknowledge your concerns regarding ${focusTerm} and have initiated a proper investigation through our designated resolution channels.`,
-        `Your feedback about ${focusTerm} has been documented as an actionable item in our continuous improvement framework.`,
-        `The ${focusTerm} matter you've identified has been escalated to the appropriate team for prompt operational recalibration.`,
-        `Our department takes your ${focusTerm} concerns seriously and has implemented appropriate remediation protocols.`,
-        `I appreciate you bringing this ${focusTerm} situation to my attention as it enables our quality assurance mechanisms to function optimally.`
-      ]);
-      
-    case 'appreciation':
-      return getRandomItem([
-        `Your positive acknowledgment of ${focusTerm} contributes significantly to our workplace harmony metrics.`,
-        `I'm pleased to document your satisfaction with ${focusTerm} in our departmental performance evaluation system.`,
-        `Your appreciation for ${focusTerm} reflects the kind of collaborative spirit that Lumon seeks to cultivate.`,
-        `The gratitude you've expressed regarding ${focusTerm} exemplifies the mutually beneficial relationship we strive to maintain.`,
-        `I'll ensure your positive feedback about ${focusTerm} is noted in our interdepartmental communications report.`
-      ]);
-      
-    case 'greeting':
-      return getRandomItem([
-        `I'm delighted to acknowledge your communicative initiation in accordance with established greeting protocols.`,
-        `Your engagement with proper interpersonal acknowledgment procedures is most appreciated and duly noted.`,
-        `I extend an optimally calibrated welcome response that aligns with our departmental communication standards.`,
-        `It's a pleasure to participate in this preliminary verbal exchange that establishes our productive dialog framework.`,
-        `I acknowledge your greeting and am prepared to facilitate a productive communicative exchange in accordance with company policy.`
-      ]);
-      
-    case 'statement':
-    default:
-      return getRandomItem([
-        `I appreciate your perspective on ${focusTerm}, which has been documented in our informational database.`,
-        `Your observation regarding ${focusTerm} aligns with our department's ongoing strategic initiatives for operational excellence.`,
-        `The information you've shared about ${focusTerm} contributes valuable insights to our collective knowledge repository.`,
-        `I've noted your statement concerning ${focusTerm} which demonstrates commendable awareness of our procedural frameworks.`,
-        `Your commentary on ${focusTerm} has been processed and categorized according to our information management protocols.`
-      ]);
-  }
-}
-
-// Function to find matches in our expanded dictionary
-function findDictionaryMatch(text) {
-  if (!window.milchickDictionary || !window.milchickDictionary.patterns) {
-    return null;
-  }
-  
-  const lowerText = text.toLowerCase().trim();
-  
-  // Check for exact matches first
-  if (window.milchickDictionary.exactMatches[lowerText]) {
-    return window.milchickDictionary.exactMatches[lowerText];
-  }
-  
-  // Then check for pattern matches
-  for (const [pattern, responses] of Object.entries(window.milchickDictionary.patterns)) {
-    if (new RegExp(pattern, 'i').test(lowerText)) {
-      return getRandomItem(responses);
-    }
-  }
-  
-  // Check for common themes
-  for (const [theme, keywords] of Object.entries(window.milchickDictionary.themes)) {
-    if (keywords.some(keyword => lowerText.includes(keyword))) {
-      return getRandomItem(window.milchickDictionary.themeResponses[theme] || []);
-    }
-  }
-  
-  return null;
+  // Fallback if templates aren't available
+  return `Your ${focusTerm} has been processed according to established departmental protocols.`;
 }
