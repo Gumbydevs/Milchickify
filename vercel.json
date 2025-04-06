@@ -6,6 +6,9 @@
     { "src": "*.css", "use": "@vercel/static" },
     { "src": "*.json", "use": "@vercel/static" }
   ],
+  "routes": [
+    { "src": "/env.js", "dest": "/env.template.js" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -16,10 +19,8 @@
       ]
     }
   ],
-  "build": {
-    "env": {
-      "NEXT_PUBLIC_OpenAI": "@openai-key",
-      "NEXT_PUBLIC_HuggingFace": "@huggingface-key"
-    }
+  "env": {
+    "NEXT_PUBLIC_OpenAI": "@openai",
+    "NEXT_PUBLIC_HuggingFace": "@huggingface"
   }
 }
