@@ -19,7 +19,7 @@
     }
   ],
   "env": {
-    "NEXT_PUBLIC_OpenAI": "@OpenAI",
-    "NEXT_PUBLIC_HuggingFace": "@HuggingFace"
+    "NEXT_PUBLIC_OpenAI": "${NEXT_PUBLIC_OpenAI}",
+    "NEXT_PUBLIC_HuggingFace": "${NEXT_PUBLIC_HuggingFace}"
   }
 }
