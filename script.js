@@ -1,3 +1,21 @@
+// Debug code to check if dictionary is loading
+window.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM loaded, checking dictionary...');
+  console.log('Dictionary loaded?', window.milchickDictionary ? 'Yes' : 'No');
+  
+  if (!window.milchickDictionary) {
+    console.error('Dictionary not found, creating a simple one for testing');
+    // Create a simple dictionary for testing
+    window.milchickDictionary = {
+      responseTemplates: {
+        greeting: ["I acknowledge your communicative gesture according to protocol."]
+      },
+      exactMatches: {},
+      themes: {},
+      severanceSpecific: {}
+    };
+  }
+});
 // Global state for the app
 let fallbackMode = false;
 
