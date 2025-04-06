@@ -62,15 +62,21 @@ function milchickify() {
         return;
       }
       
-      // Make API call (placeholder - you would need to implement actual API call)
-      fetch('https://api.openai.com/v1/chat/completions', {
+      // Get endpoint and configuration from ENV
+      const endpoint = window.ENV.ENDPOINT || 'https://api.openai.com/v1/chat/completions';
+      const model = window.ENV.MODEL || 'gpt-3.5-turbo';
+      const maxTokens = window.ENV.MAX_TOKENS || 150;
+      const temperature = window.ENV.TEMPERATURE || 0.7;
+      
+      // Make API call
+      fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-          model: "gpt-3.5-turbo",
+          model: model,
           messages: [
             {
               role: "system",
@@ -81,7 +87,8 @@ function milchickify() {
               content: inputText
             }
           ],
-          max_tokens: 150
+          max_tokens: maxTokens,
+          temperature: temperature
         })
       })
       .then(response => {
