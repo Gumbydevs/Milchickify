@@ -1,6 +1,9 @@
 # Ignore actual env.js with API key
 env.js
 
+# Don't ignore the template
+!env.template.js
+
 # Ignore node modules
 node_modules/
 
